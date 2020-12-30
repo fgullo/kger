@@ -1,0 +1,52 @@
+AMIEs-rules/amie-FB15k237.txt
+---------------------------------
+Number of rules: 222964
+Rule body tokens MIN: 3
+Rule body tokens MAX: 6
+Rule body tokens AVG: 3.1908469528713157
+---------------------------------
+
+
+AMIEs-rules/amie-FB15k.txt
+---------------------------------
+Number of rules: 860722
+Rule body tokens MIN: 3
+Rule body tokens MAX: 6
+Rule body tokens AVG: 3.519896087238388
+---------------------------------
+
+
+AMIEs-rules/amie-WN18.txt
+---------------------------------
+Number of rules: 761
+Rule body tokens MIN: 3
+Rule body tokens MAX: 6
+Rule body tokens AVG: 5.081471747700395
+---------------------------------
+
+
+AMIEs-rules/amie-WN18RR.txt
+---------------------------------
+Number of rules: 112
+Rule body tokens MIN: 3
+Rule body tokens MAX: 6
+Rule body tokens AVG: 5.25
+---------------------------------
+
+
+AMIEs-rules/amie-YAGO.txt
+---------------------------------
+Number of rules: 4472
+Rule body tokens MIN: 3
+Rule body tokens MAX: 6
+Rule body tokens AVG: 3.4152504472271916
+---------------------------------
+
+
+AMIEs-rules/yago2_sample_support_2.txt
+---------------------------------
+Number of rules: 302
+Rule body tokens MIN: 3
+Rule body tokens MAX: 6
+Rule body tokens AVG: 5.562913907284768
+---------------------------------

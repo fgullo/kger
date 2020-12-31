@@ -64,7 +64,36 @@ def load_embeddings(path):
     embedding_json = json.load(embedding_file)
     ent_embeddings = embedding_json['ent_embeddings.weight']
     rel_embeddings = embedding_json['rel_embeddings.weight']
+    embedding_file.close()
     return (ent_embeddings, rel_embeddings)
+
+def load_openke_dataset(path):
+    import os
+    id2entity = {}
+    entity2id_file = codecs.open(path + os.path.sep + 'entity2id.txt', 'r', encoding='utf-8', errors='ignore')
+    line = entity2id_file.readline() #skip head
+    line = entity2id_file.readline()
+    while line:
+        tokens = line.split('\t')
+        entity = tokens[0]
+        id = int(tokens[1])
+        id2entity[id] = entity
+        line = entity2id_file.readline()
+    entity2id_file.close()
+
+    id2relation = {}
+    relation2id_file = codecs.open(path + os.path.sep + 'relation2id.txt', 'r', encoding='utf-8', errors='ignore')
+    line = relation2id_file.readline() #skip head
+    line = relation2id_file.readline()
+    while line:
+        tokens = line.split('\t')
+        relation = tokens[0]
+        id = int(tokens[1])
+        id2relation[id] = relation
+        line = relation2id_file.readline()
+    relation2id_file.close()
+
+    return (id2entity, id2relation)
 
 if __name__ == '__main__':
     #(kg,reverse_kg) = load_kg('../data/kg/yago2core.10kseedsSample.compressed.notypes.tsv')
@@ -90,3 +119,8 @@ if __name__ == '__main__':
     print('Embedding dimensionality (entity): ' + str(len(ent_embeddings[0])))
     print('Embedding dimensionality (relation): ' + str(len(rel_embeddings[0])))
     print('Example embedding (first entity): ' + str(ent_embeddings[0]))
+    print()
+
+    (id2entity, id2relation) = load_openke_dataset('../data/openke/yago2sample')
+    print(id2entity[0])
+    print(id2relation[0])

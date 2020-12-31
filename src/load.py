@@ -57,21 +57,36 @@ def load_rules(path):
     rule_file.close()
     return rules
 
+def load_embeddings(path):
+    import json
+    embedding_file = codecs.open(path, 'r', encoding='utf-8', errors='ignore')
+    #embedding_json = json.dumps(embedding_file.readline())
+    embedding_json = json.load(embedding_file)
+    ent_embeddings = embedding_json['ent_embeddings.weight']
+    rel_embeddings = embedding_json['rel_embeddings.weight']
+    return (ent_embeddings, rel_embeddings)
+
 if __name__ == '__main__':
-    (kg,reverse_kg) = load_kg('../data/kg/yago2core.10kseedsSample.compressed.notypes.tsv')
+    #(kg,reverse_kg) = load_kg('../data/kg/yago2core.10kseedsSample.compressed.notypes.tsv')
 
-    kg_facts = 0
-    for p in kg.keys():
-        for s in kg[p].keys():
-            kg_facts += len(kg[p][s])
-    print("KG loaded facts: " + str(kg_facts))
+    #kg_facts = 0
+    #for p in kg.keys():
+    #    for s in kg[p].keys():
+    #        kg_facts += len(kg[p][s])
+    #print("KG loaded facts: " + str(kg_facts))
 
-    reverse_kg_facts = 0
-    for p in reverse_kg.keys():
-        for s in reverse_kg[p].keys():
-            reverse_kg_facts += len(reverse_kg[p][s])
-    print("Reverse-KG loaded facts: " + str(reverse_kg_facts))
+    #reverse_kg_facts = 0
+    #for p in reverse_kg.keys():
+    #    for s in reverse_kg[p].keys():
+    #        reverse_kg_facts += len(reverse_kg[p][s])
+    #print("Reverse-KG loaded facts: " + str(reverse_kg_facts))
 
-    rules = load_rules('../data/rule/amie-rules_yago2-sample.txt')
-    print("Loaded rules: " + str(len(rules)))
-    print("Example rule: " + str(rules[0]))
+    #rules = load_rules('../data/rule/amie-rules_yago2-sample.txt')
+    #print("Loaded rules: " + str(len(rules)))
+    #print("Example rule: " + str(rules[0]))
+    (ent_embeddings,rel_embeddings) = load_embeddings('../data/embedding/transe_yago2sample_200.vec.json')
+    print('Entities: ' + str(len(ent_embeddings)))
+    print('Relations: ' + str(len(rel_embeddings)))
+    print('Embedding dimensionality (entity): ' + str(len(ent_embeddings[0])))
+    print('Embedding dimensionality (relation): ' + str(len(rel_embeddings[0])))
+    print('Example embedding (first entity): ' + str(ent_embeddings[0]))

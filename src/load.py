@@ -69,7 +69,7 @@ def load_embeddings(path):
 
 def load_openke_dataset(path):
     import os
-    id2entity = {}
+    entity2id = {}
     entity2id_file = codecs.open(path + os.path.sep + 'entity2id.txt', 'r', encoding='utf-8', errors='ignore')
     line = entity2id_file.readline() #skip head
     line = entity2id_file.readline()
@@ -77,11 +77,11 @@ def load_openke_dataset(path):
         tokens = line.split('\t')
         entity = tokens[0]
         id = int(tokens[1])
-        id2entity[id] = entity
+        entity2id[entity] = id
         line = entity2id_file.readline()
     entity2id_file.close()
 
-    id2relation = {}
+    relation2id = {}
     relation2id_file = codecs.open(path + os.path.sep + 'relation2id.txt', 'r', encoding='utf-8', errors='ignore')
     line = relation2id_file.readline() #skip head
     line = relation2id_file.readline()
@@ -89,11 +89,11 @@ def load_openke_dataset(path):
         tokens = line.split('\t')
         relation = tokens[0]
         id = int(tokens[1])
-        id2relation[id] = relation
+        relation2id[relation] = id
         line = relation2id_file.readline()
     relation2id_file.close()
 
-    return (id2entity, id2relation)
+    return (entity2id, relation2id)
 
 if __name__ == '__main__':
     #(kg,reverse_kg) = load_kg('../data/kg/yago2core.10kseedsSample.compressed.notypes.tsv')
@@ -121,6 +121,6 @@ if __name__ == '__main__':
     print('Example embedding (first entity): ' + str(ent_embeddings[0]))
     print()
 
-    (id2entity, id2relation) = load_openke_dataset('../data/openke/yago2sample')
-    print(id2entity[0])
-    print(id2relation[0])
+    (entity2id, relation2id) = load_openke_dataset('../data/openke/yago2sample')
+    print(next(iter(entity2id.keys())))
+    print(next(iter(relation2id.keys())))

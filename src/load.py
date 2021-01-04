@@ -49,7 +49,7 @@ def load_rules(path):
             #print(body_str_tokens[i:i+3])
             body.append(body_str_tokens[i:i+3])
 
-        rule = [head,body]
+        rule = [body,head]
         rules.append(rule)
 
         line = rule_file.readline()

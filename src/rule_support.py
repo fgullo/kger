@@ -169,7 +169,8 @@ if __name__ == '__main__':
         output = open(output_file, 'w')
         output.write('RULE' + '\t' + 'EXAMPLE' + '\t' + 'ENTITIES' + '\t' + 'RELATIONS')
         for rule in rules:
-            flat_rule = rule[0:1] + rule[1]
+            #flat_rule = rule[0:1] + rule[1]
+            flat_rule = rule[0] + rule[-1:]
             (rule_string, _, _) = parse_rule(flat_rule)
             support = rule_support(flat_rule)
             tot_examples += len(support)

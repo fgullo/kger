@@ -8,6 +8,36 @@ def get_dist(v1,v2):
         d += (v1[i]-v2[i])*(v1[i]-v2[i])
     return d
 
+#area of the minimum bounding hyper-rectangle
+def mbr_area(embeddings):
+    min_coordinates = []
+    max_coordinates = []
+    for i in range(0,len(embeddings[0])):
+        min_coordinates[i] = embeddings[0][i]
+        max_coordinates[i] = embeddings[0][i]
+    for e in embeddings:
+        for i in range(1,len(e)):
+            if e[i] < min_coordinates[i]:
+                min_coordinates[i] = e[i]
+            if e[i] > max_coordinates[i]:
+                max_coordinates[i] = e[i]
+
+    area = 1.0
+    for i in range(0,len(min_coordinates)):
+        area *= (max_coordinates[i] - min_coordinates[i])
+
+    return area
+
+def pairwise_dist(src_ids,target_ids,src_embeddings,target_embeddings):
+    dist = {}
+    for x_id in src_ids:
+        x_embedding = src_embeddings[x_id]
+        for y_id in target_ids:
+            y_embedding = target_embeddings[y_id]
+            d = get_dist(x_embedding,y_embedding)
+            dist[(x_id,y_id)] = d
+    return dist
+
 """
 def get_avg_dist(src_obj,target_obj,embeddings,obj2id):
     dist_sum = 0.0
@@ -23,6 +53,7 @@ def get_avg_dist(src_obj,target_obj,embeddings,obj2id):
     return avg_dist
 """
 
+"""
 def get_avg_dist(src_obj,target_obj,embeddings,obj2id):
     dist_sum = 0.0
     count = 0
@@ -37,6 +68,22 @@ def get_avg_dist(src_obj,target_obj,embeddings,obj2id):
             dist_sum_x += d
         dist_avg_x = 0.0 if count_x == 0 else dist_sum_x/count_x
         dist_sum += dist_avg_x
+        count += 1
+    dist_avg = 0.0 if count == 0 else dist_sum/count
+    return dist_avg
+"""
+
+def avg_dist(src_ids,target_ids,pairwise_dist):
+    dist_sum = 0.0
+    count = 0
+    for i in src_ids:
+        dist_sum_i = 0.0
+        count_i = 0
+        for j in target_ids:
+            dist_sum_i += pairwise_dist[(i,j)]
+            count_i += 1
+        dist_avg_i = 0.0 if count_i == 0 else dist_sum_i/count_i
+        dist_sum += dist_avg_i
         count += 1
     dist_avg = 0.0 if count == 0 else dist_sum/count
     return dist_avg
@@ -67,9 +114,35 @@ if __name__ == '__main__':
             output_file = value
 
     (ent_embeddings,rel_embeddings) = load.load_embeddings(embedding_file)
+    print('Embeddings successfully loaded!')
     (entity2id, relation2id) = load.load_openke_dataset(kg_folder)
+    print('OpenKE dataset successfully loaded!')
 
-    heading = 'RULE' + '\t' + 'EXAMPLE' + '\t' + 'AVG_DIST_E2E' + 't' + 'AVG_DIST_E2RoW' + '\t' + 'AVG_DIST_R2R' + '\t' + 'AVG_DIST_R2RoW'
+    all_entities = list(entity2id.keys())
+    all_entity_ids = list(entity2id.values())
+    all_relations = list(relation2id.keys())
+    all_relation_ids = list(relation2id.values())
+    print('Computing r2r pairwise distances')
+    rr_pairwise_dist = pairwise_dist(all_relation_ids,all_relation_ids,rel_embeddings,rel_embeddings)
+    print('Computing e2r pairwise distances')
+    er_pairwise_dist = pairwise_dist(all_entity_ids,all_relation_ids,ent_embeddings,rel_embeddings)
+    print('Computing e2e pairwise distances')
+    ee_pairwise_dist = pairwise_dist(all_entity_ids,all_entity_ids,ent_embeddings,ent_embeddings)
+
+    print('Computing entity MBRs')
+    alle_mbr_area = mbr_area(ent_embeddings)
+    print('Computing entity-relation MBRs')
+    aller_mbr_area = mbr_area(ent_embeddings+rel_embeddings)
+    print('Computing relation MBRs')
+    allr_mbr_area = mbr_area(rel_embeddings)
+
+    heading = 'RULE' + '\t' + 'EXAMPLE' + '\t'\
+    'AVG_DIST_E2E' + '\t' + 'AVG_DIST_E2ALLE' + '\t'\
+    'AVG_DIST_E2R' + '\t' + 'AVG_DIST_E2ALLR' + '\t'\
+    'AVG_DIST_R2R' + '\t' + 'AVG_DIST_R2ALLR' + '\t'\
+    'E_MBR' + '\t' + 'ALLE_MBR' + '\t'\
+    'ER_MBR' + '\t' + 'ALLER_MBR' + '\t'\
+    'R_MBR' + '\t' + 'ALLR_MBR'
     if rule_support_file and output_file:
         count = 0
         rules = codecs.open(rule_support_file, 'r', encoding='utf-8', errors='ignore')
@@ -83,12 +156,25 @@ if __name__ == '__main__':
             example = tokens[1]
             entities = tokens[2].split()
             relations = tokens[3].split()
-            avg_dist_ent2ent = get_avg_dist(entities,entities,ent_embeddings,entity2id)
-            avg_dist_ent2row = get_avg_dist(entities,list(entity2id.keys()),ent_embeddings,entity2id)
-            avg_dist_rel2rel = get_avg_dist(relations,relations,rel_embeddings,relation2id)
-            avg_dist_rel2row = get_avg_dist(relations,list(relation2id.keys()),rel_embeddings,relation2id)
+            entity_ids = [entity2id[e] for e in entities]
+            relation_ids = [relation2id[r] for r in entities]
+
+            e2e_avgdist = avg_dist(entity_ids,entity_ids,ee_pairwise_dist)
+            e2alle_avgdist = avg_dist(entity_ids,all_entity_ids,ee_pairwise_dist)
+            e2r_avgdist = avg_dist(entity_ids,relation_ids,er_pairwise_dist)
+            e2allr_avgdist = avg_dist(entity_ids,all_relation_ids,er_pairwise_dist)
+            r2r_avgdist = avg_dist(relation_ids,relation_ids,rr_pairwise_dist)
+            r2allr_avgdist = avg_dist(relation_ids,all_relation_ids,rr_pairwise_dist)
+
+            e_embeddings = [ent_embeddings[e_id] for e_id in entity_ids]
+            r_embeddings = [rel_embeddings[r_id] for r_id in relation_ids]
+            e_mbr_area = mbr_area(e_embeddings)
+            er_mbr_area = mbr_area(e_embeddings+r_embeddings)
+            r_mbr_area = mbr_area(r_ambeddings)
+
+            output_line = '\t'.join([rule,example,e2e_avgdist,e2alle_avgdist,e2r_avgdist,e2allr_avgdist,r2r_avgdist,r2allr_avgdist,e_mbr_area,alle_mbr_area,er_mbr_area,aller_mbr_area,r_mbr_area,allr_mbr_area])
             #print(rule + '\t' + example + '\t' + str(avg_dist_ent2ent) + '\t' + str(avg_dist_ent2row) + '\t' + str(avg_dist_rel2rel) + '\t' + str(avg_dist_rel2row))
-            output.write('\n' + rule + '\t' + example + '\t' + str(avg_dist_ent2ent) + '\t' + str(avg_dist_ent2row) + '\t' + str(avg_dist_rel2rel) + '\t' + str(avg_dist_rel2row))
+            output.write(output_line)
             output.flush()
             line = rules.readline()
             count += 1
@@ -96,5 +182,5 @@ if __name__ == '__main__':
         rules.close()
         output.close()
     else:
-        print("ERROR: rule-support file and/or putput file not provided")
+        print("ERROR: rule-support file and/or output file not provided")
         sys.exit(2)

@@ -69,6 +69,15 @@ def mbr_diagonal(embeddings):
     (min_coordinates,max_coordinates) = minmax_coordinates(embeddings)
     return euclidean_dist(min_coordinates,max_coordinates)
 
+def centroid(embeddings):
+    c = [embeddings[0][j] for j in range(0,len(embeddings[0]))]
+    for i in range(1,len(embeddings)):
+        for j in range(0,len(embeddings[i])):
+            c[j] += embeddings[i][j]
+    for j in range(0,len(embeddings[0])):
+        c[j] /= len(embeddings)
+    return c
+
 """
 def pairwise_dist(src_ids,target_ids,src_embeddings,target_embeddings):
     dist = {}
@@ -175,9 +184,9 @@ if __name__ == '__main__':
     'AVG_DIST_E2E' + '\t' + 'AVG_DIST_E2ALLE' + '\t'\
     'AVG_DIST_E2R' + '\t' + 'AVG_DIST_E2ALLR' + '\t'\
     'AVG_DIST_R2R' + '\t' + 'AVG_DIST_R2ALLR' + '\t'\
-    'E_MBR' + '\t' + 'ALLE_MBR' + '\t'\
-    'ER_MBR' + '\t' + 'ALLER_MBR' + '\t'\
-    'R_MBR' + '\t' + 'ALLR_MBR'
+    'E_MBR_DIAG' + '\t' + 'ALLE_MBR_DIAG' + '\t'\
+    'ER_MBR_DIAG' + '\t' + 'ALLER_MBR_DIAG' + '\t'\
+    'R_MBR_DIAG' + '\t' + 'ALLR_MBR_DIAG'
     if rule_support_file and output_file:
         count = 0
         rules = codecs.open(rule_support_file, 'r', encoding='utf-8', errors='ignore')
@@ -185,6 +194,9 @@ if __name__ == '__main__':
         output.write(heading)
         line = rules.readline() #skip heading
         line = rules.readline()
+        current_rule = ''
+        rule_stats = []
+        n_examples = 0
         while line:
             tokens = line.split('\t')
             rule = tokens[0]
@@ -213,10 +225,27 @@ if __name__ == '__main__':
             er_mbr_diag = mbr_diagonal(current_ent_embeddings+current_rel_embeddings)
             r_mbr_diag = mbr_diagonal(current_rel_embeddings)
 
-            #output_line = '\t'.join([rule,example,str(e2e_avgdist),str(e2alle_avgdist),str(e2r_avgdist),str(e2allr_avgdist),str(r2r_avgdist),str(r2allr_avgdist),str(e_mbr_area),str(alle_mbr_area),str(er_mbr_area),str(aller_mbr_area),str(r_mbr_area),str(allr_mbr_area)])
-            output_line = '\t'.join([rule,example,str(e2e_avgdist),str(e2alle_avgdist),str(e2r_avgdist),str(e2allr_avgdist),str(r2r_avgdist),str(r2allr_avgdist),str(e_mbr_diag),str(alle_mbr_diag),str(er_mbr_diag),str(aller_mbr_diag),str(r_mbr_diag),str(allr_mbr_diag)])
+            output_stats = [e2e_avgdist,e2alle_avgdist,e2r_avgdist,e2allr_avgdist,r2r_avgdist,r2allr_avgdist,e_mbr_diag,alle_mbr_diag,er_mbr_diag,aller_mbr_diag,r_mbr_diag,allr_mbr_diag]
+
+            if rule == current_rule:
+                for i in range(0,len(output_stats)):
+                    rule_stats[i] += output_stats[i]
+                n_examples += 1
+            else:
+                if current_rule != '':
+                    for i in range(0,len(rule_stats)):
+                        rule_stats[i] = float(rule_stats[i])/n_examples
+                    output_line = rule + '\t' + 'AVG OVER ' + str(n_examples) + ' EXAMPLES' + '\t' + '\t'.join([str(s) for s in rule_stats])
+                    output.write('\n' + output_line + '\n')
+                    output.flush()
+                current_rule = rule
+                rule_stats = [s for s in output_stats]
+                n_examples = 1
+
+            output_line = rule + '\t' + example + '\t' + '\t'.join([str(s) for s in output_stats])
             output.write('\n' + output_line)
             output.flush()
+
             line = rules.readline()
             count += 1
             print('#processed lines: ' + str(count))

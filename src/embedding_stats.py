@@ -38,31 +38,38 @@ def fast_avg_euclidean_dist_momentsgiven(first_order_moment1,first_order_moment2
         dist += second_order_moment1[j] - 2*first_order_moment1[j]*first_order_moment2[j] + second_order_moment2[j]
     return dist
 
-#area of the minimum bounding hyper-rectangle
-def mbr_area(embeddings):
+def minmax_coordinates(embeddings):
     min_coordinates = [embeddings[0][i] for i in range(0,len(embeddings[0]))]
     max_coordinates = [embeddings[0][i] for i in range(0,len(embeddings[0]))]
     for e in embeddings:
-        for i in range(1,len(e)):
+        for i in range(0,len(e)):
             if e[i] < min_coordinates[i]:
                 min_coordinates[i] = e[i]
             if e[i] > max_coordinates[i]:
                 max_coordinates[i] = e[i]
+    return (min_coordinates,max_coordinates)
 
-    area = 1.0
-    for i in range(0,len(min_coordinates)):
-        area *= (max_coordinates[i] - min_coordinates[i])
-
-    return area
-
-"""
 #squared Euclidean distance
-def get_dist(v1,v2):
+def euclidean_dist(v1,v2):
     d = 0.0
     for i in range(0,len(v1)):
         d += (v1[i]-v2[i])*(v1[i]-v2[i])
     return d
 
+#area of the minimum bounding hyper-rectangle
+def mbr_area(embeddings):
+    (min_coordinates,max_coordinates) = minmax_coordinates(embeddings)
+    area = 1.0
+    for i in range(0,len(min_coordinates)):
+        area *= (max_coordinates[i] - min_coordinates[i])
+    return area
+
+#length of the diagonal of the minimum bounding hyper-rectangle
+def mbr_diagonal(embeddings):
+    (min_coordinates,max_coordinates) = minmax_coordinates(embeddings)
+    return euclidean_dist(min_coordinates,max_coordinates)
+
+"""
 def pairwise_dist(src_ids,target_ids,src_embeddings,target_embeddings):
     dist = {}
     for x_id in src_ids:
@@ -88,6 +95,21 @@ def avg_dist(src_ids,target_ids,pairwise_dist):
     dist_avg = 0.0 if count == 0 else dist_sum/count
     return dist_avg
 """
+
+def reduce_dim(embeddings):
+    epsilon = 0.0001
+    dims_tobefiltered = []
+    for j in range(0,len(embeddings[0])):
+        vj = embeddings[0][j]
+        all_equal_vj = True
+        i = 1
+        while i < len(embeddings) and all_equal_vj:
+            all_equal_vj = abs(embeddings[i][j] - vj) <= epsilon
+            i += 1
+        if all_equal_vj:
+            dims_tobefiltered += vj
+    return dims_tobefiltered
+
 
 def debug():
     vectors = [[1,2,3],[3,2,1],[2,2,2]]
@@ -127,18 +149,27 @@ if __name__ == '__main__':
     (entity2id, relation2id) = load.load_openke_dataset(kg_folder)
     print('OpenKE dataset successfully loaded!')
 
+    #print(reduce_dim(ent_embeddings))
+    #sys.exit(-1)
+
     print('Computing (first-order and second-order) moments of all entities and relations')
     fo_moment_alle = get_first_order_moment(ent_embeddings)
     so_moment_alle = get_second_order_moment(ent_embeddings)
     fo_moment_allr = get_first_order_moment(rel_embeddings)
     so_moment_allr = get_second_order_moment(rel_embeddings)
 
+    #print('Computing entity MBRs')
+    #alle_mbr_area = mbr_area(ent_embeddings)
+    #print('Computing entity-relation MBRs')
+    #aller_mbr_area = mbr_area(ent_embeddings+rel_embeddings)
+    #print('Computing relation MBRs')
+    #allr_mbr_area = mbr_area(rel_embeddings)
     print('Computing entity MBRs')
-    alle_mbr_area = mbr_area(ent_embeddings)
+    alle_mbr_diag = mbr_diagonal(ent_embeddings)
     print('Computing entity-relation MBRs')
-    aller_mbr_area = mbr_area(ent_embeddings+rel_embeddings)
+    aller_mbr_diag = mbr_diagonal(ent_embeddings+rel_embeddings)
     print('Computing relation MBRs')
-    allr_mbr_area = mbr_area(rel_embeddings)
+    allr_mbr_diag = mbr_diagonal(rel_embeddings)
 
     heading = 'RULE' + '\t' + 'EXAMPLE' + '\t'\
     'AVG_DIST_E2E' + '\t' + 'AVG_DIST_E2ALLE' + '\t'\
@@ -175,12 +206,15 @@ if __name__ == '__main__':
             r2r_avgdist = fast_avg_euclidean_dist_momentsgiven(fo_moment_currentr,fo_moment_currentr,so_moment_currentr,so_moment_currentr)
             r2allr_avgdist = fast_avg_euclidean_dist_momentsgiven(fo_moment_currentr,fo_moment_allr,so_moment_currentr,so_moment_allr)
 
-            e_mbr_area = mbr_area(current_ent_embeddings)
-            er_mbr_area = mbr_area(current_ent_embeddings+current_rel_embeddings)
-            r_mbr_area = mbr_area(current_rel_embeddings)
+            #e_mbr_area = mbr_area(current_ent_embeddings)
+            #er_mbr_area = mbr_area(current_ent_embeddings+current_rel_embeddings)
+            #r_mbr_area = mbr_area(current_rel_embeddings)
+            e_mbr_diag = mbr_diagonal(current_ent_embeddings)
+            er_mbr_diag = mbr_diagonal(current_ent_embeddings+current_rel_embeddings)
+            r_mbr_diag = mbr_diagonal(current_rel_embeddings)
 
-            output_line = '\t'.join([rule,example,str(e2e_avgdist),str(e2alle_avgdist),str(e2r_avgdist),str(e2allr_avgdist),str(r2r_avgdist),str(r2allr_avgdist),str(e_mbr_area),str(alle_mbr_area),str(er_mbr_area),str(aller_mbr_area),str(r_mbr_area),str(allr_mbr_area)])
-            #print(rule + '\t' + example + '\t' + str(avg_dist_ent2ent) + '\t' + str(avg_dist_ent2row) + '\t' + str(avg_dist_rel2rel) + '\t' + str(avg_dist_rel2row))
+            #output_line = '\t'.join([rule,example,str(e2e_avgdist),str(e2alle_avgdist),str(e2r_avgdist),str(e2allr_avgdist),str(r2r_avgdist),str(r2allr_avgdist),str(e_mbr_area),str(alle_mbr_area),str(er_mbr_area),str(aller_mbr_area),str(r_mbr_area),str(allr_mbr_area)])
+            output_line = '\t'.join([rule,example,str(e2e_avgdist),str(e2alle_avgdist),str(e2r_avgdist),str(e2allr_avgdist),str(r2r_avgdist),str(r2allr_avgdist),str(e_mbr_diag),str(alle_mbr_diag),str(er_mbr_diag),str(aller_mbr_diag),str(r_mbr_diag),str(allr_mbr_diag)])
             output.write('\n' + output_line)
             output.flush()
             line = rules.readline()

@@ -1,6 +1,42 @@
-import sys, getopt, os, codecs
+import sys, getopt, os, codecs, math
 import load
 
+def range_query_settingup(vectors):
+    inverted_coord_index = [{} for j in range(0,len(vectors[0]))]
+    sorted_coord = [[] for j in range(0,len(vectors[0]))]
+    for j in range(0,len(vectors[0])):
+        j_coord = [vectors[i][j] for i in range(0,len(vectors))]
+        sorted_coord[j] = sorted(j_coord)
+        for i in range(0,len(vectors)):
+            v = vectors[i][j]
+            if v not in inverted_coord_index[j]:
+                inverted_coord_index[j][v] = set()
+            inverted_coord_index[j][v].add(i)
+
+    return (inverted_coord_index,sorted_coord)
+
+def range_query(range_query_min_coord,range_query_max_coord,inverted_coord_index,sorted_coord):
+    output = set()
+    for j in range(0,len(range_query_min_coord)):
+        output_j = set()
+        min = range_query_min_coord[j]
+        max = range_query_max_coord[j]
+        i_min = binary_search(min,sorted_coord[j])
+        i_max = binary_search(max,sorted_coord[j])
+        if i_min != -1 and i_max != -1:
+            for i in range(i_min,i_max+1):
+                v = sorted_coord[j][i]
+                v_objects = inverted_coord_index[j][v]
+                output_j.union(v_objects)
+            output.union(output_j) if j == 0 else output.intersection(output_j)
+    return output
+
+#return the index in of the smallest value in <values> that is >= <key> (return -1 is <key> is > of all values in <values>)
+def binary_search(key,values):
+    for i in range(0,len(values)):
+        if values[i] >= key:
+            return i
+    return -1
 
 def get_first_order_moment(vectors):
     moments = [float(vectors[0][j]) for j in range(0,len(vectors[0]))]
@@ -121,10 +157,15 @@ def reduce_dim(embeddings):
 
 
 def debug():
-    vectors = [[1,2,3],[3,2,1],[2,2,2]]
-    print(get_first_order_moment(vectors))
-    print(get_second_order_moment(vectors))
-    print(fast_avg_euclidean_dist([[2,2,3],[1,3,4]],[[2,2,3],[1,3,4]]))
+    print(binary_search(8,[7,11,15,18,20]))
+    print(binary_search(15,[7,11,15,18,20]))
+    print(binary_search(19,[7,11,15,18,20]))
+    print(binary_search(25,[7,11,15,18,20]))
+    print(binary_search(5,[7,11,15,18,20]))
+    #vectors = [[1,2,3],[3,2,1],[2,2,2]]
+    #print(get_first_order_moment(vectors))
+    #print(get_second_order_moment(vectors))
+    #print(fast_avg_euclidean_dist([[2,2,3],[1,3,4]],[[2,2,3],[1,3,4]]))
     sys.exit(-1)
 
 if __name__ == '__main__':
@@ -195,8 +236,15 @@ if __name__ == '__main__':
         line = rules.readline() #skip heading
         line = rules.readline()
         current_rule = ''
-        rule_stats = []
+        rule_stats_sum = []
+        rule_stats_square_sum = []
+        fo_moment_current_rule_e = []
+        so_moment_current_rule_e = []
+        fo_moment_current_rule_r = []
+        so_moment_current_rule_r = []
         n_examples = 0
+        n_rule_entities = 0
+        n_rule_relations = 0
         while line:
             tokens = line.split('\t')
             rule = tokens[0]
@@ -229,17 +277,60 @@ if __name__ == '__main__':
 
             if rule == current_rule:
                 for i in range(0,len(output_stats)):
-                    rule_stats[i] += output_stats[i]
+                    rule_stats_sum[i] += output_stats[i]
+                    rule_stats_square_sum[i] += output_stats[i]*output_stats[i]
+
+                for i in range(0,len(fo_moment_currente)):
+                    fo_moment_current_rule_e[i] += fo_moment_currente[i]*len(current_ent_embeddings)
+                for i in range(0,len(so_moment_currente)):
+                    so_moment_current_rule_e[i] += so_moment_currente[i]*len(current_ent_embeddings)
+                for i in range(0,len(fo_moment_currentr)):
+                    fo_moment_current_rule_r[i] += fo_moment_currentr[i]*len(current_rel_embeddings)
+                for i in range(0,len(so_moment_currentr)):
+                    so_moment_current_rule_r[i] += so_moment_currentr[i]*len(current_rel_embeddings)
+
+                n_rule_entities += len(current_ent_embeddings)
+                n_rule_relations += len(current_rel_embeddings)
                 n_examples += 1
             else:
                 if current_rule != '':
-                    for i in range(0,len(rule_stats)):
-                        rule_stats[i] = float(rule_stats[i])/n_examples
-                    output_line = rule + '\t' + 'AVG OVER ' + str(n_examples) + ' EXAMPLES' + '\t' + '\t'.join([str(s) for s in rule_stats])
-                    output.write('\n' + output_line + '\n')
+                    rule_stats_avg = [float(s)/n_examples for s in rule_stats_sum]
+                    rule_stats_stddev = [math.sqrt(max(0,float(rule_stats_square_sum[i])/n_examples - rule_stats_avg[i]*rule_stats_avg[i])) for i in range(0,len(rule_stats_square_sum))]
+                    #for i in range(0,len(rule_stats)):
+                    #    rule_stats[i] = float(rule_stats[i])/n_examples
+                    output_line_avg = rule + '\t' + 'AVG STATS (over ' + str(n_examples) + ' examples)' + '\t' + '\t'.join([str(s) for s in rule_stats_avg])
+                    output_line_stddev = rule + '\t' + 'STD-DEV STATS (over ' + str(n_examples) + ' examples)' + '\t' + '\t'.join([str(s) for s in rule_stats_stddev])
+                    output.write('\n' + output_line_avg)
+                    output.write('\n' + output_line_stddev)
+
+                    for i in range(0,len(fo_moment_current_rule_e)):
+                        fo_moment_current_rule_e[i] = float(fo_moment_current_rule_e[i])/n_rule_entities
+                    for i in range(0,len(so_moment_current_rule_e)):
+                        so_moment_current_rule_e[i] = float(so_moment_current_rule_e[i])/n_rule_entities
+                    for i in range(0,len(fo_moment_current_rule_r)):
+                        fo_moment_current_rule_r[i] = float(fo_moment_current_rule_r[i])/n_rule_relations
+                    for i in range(0,len(so_moment_current_rule_r)):
+                        so_moment_current_rule_r[i] = float(so_moment_current_rule_r[i])/n_rule_relations
+                    avg_interexample_dist_e = fast_avg_euclidean_dist_momentsgiven(fo_moment_current_rule_e,fo_moment_current_rule_e,so_moment_current_rule_e,so_moment_current_rule_e)
+                    avg_interexample_dist_er = fast_avg_euclidean_dist_momentsgiven(fo_moment_current_rule_e,fo_moment_current_rule_r,so_moment_current_rule_e,so_moment_current_rule_r)
+                    avg_interexample_dist_r = fast_avg_euclidean_dist_momentsgiven(fo_moment_current_rule_r,fo_moment_current_rule_r,so_moment_current_rule_r,so_moment_current_rule_r)
+                    output.write('\n' + rule + '\t' + 'AVG INTER-EXAMPLE DISTANCE BETWEEN ENTITIES' + '\t' + str(avg_interexample_dist_e))
+                    output.write('\n' + rule + '\t' + 'AVG INTER-EXAMPLE DISTANCE BETWEEN ENTITIES AND RELATIONS' + '\t' + str(avg_interexample_dist_er))
+                    output.write('\n' + rule + '\t' + 'AVG INTER-EXAMPLE DISTANCE BETWEEN RELATIONS' + '\t' + str(avg_interexample_dist_r))
+                    output.write('\n')
                     output.flush()
+
                 current_rule = rule
-                rule_stats = [s for s in output_stats]
+                rule_stats_sum = [s for s in output_stats]
+                rule_stats_square_sum = [s*s for s in output_stats]
+
+                fo_moment_current_rule_e = [x*len(current_ent_embeddings) for x in fo_moment_currente]
+                so_moment_current_rule_e = [x*len(current_ent_embeddings) for x in so_moment_currente]
+                fo_moment_current_rule_r = [x*len(current_rel_embeddings) for x in fo_moment_currentr]
+                so_moment_current_rule_r = [x*len(current_rel_embeddings) for x in so_moment_currentr]
+
+                n_rule_entities = len(current_ent_embeddings)
+                n_rule_relations = len(current_rel_embeddings)
                 n_examples = 1
 
             output_line = rule + '\t' + example + '\t' + '\t'.join([str(s) for s in output_stats])

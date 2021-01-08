@@ -1,12 +1,13 @@
-import sys, getopt, os, codecs, math
+import sys, getopt, os, codecs, math, time
 import load
 
-def range_query_settingup(vectors):
+
+def range_query_setup(vectors):
     inverted_coord_index = [{} for j in range(0,len(vectors[0]))]
     sorted_coord = [[] for j in range(0,len(vectors[0]))]
     for j in range(0,len(vectors[0])):
         j_coord = [vectors[i][j] for i in range(0,len(vectors))]
-        sorted_coord[j] = sorted(j_coord)
+        sorted_coord[j] = sorted(list(set(j_coord)))
         for i in range(0,len(vectors)):
             v = vectors[i][j]
             if v not in inverted_coord_index[j]:
@@ -15,28 +16,169 @@ def range_query_settingup(vectors):
 
     return (inverted_coord_index,sorted_coord)
 
+def range_query_setup_incremental(vectors, valid_vectors, j):
+    inverted_coord_index = {}
+    sorted_coord = []
+
+    j_coord = [vectors[i][j] for i in valid_vectors]
+    sorted_coord = sorted(list(set(j_coord)))
+
+    for i in valid_vectors:
+        v = vectors[i][j]
+        if v not in inverted_coord_index:
+            inverted_coord_index[v] = set()
+        inverted_coord_index[v].add(i)
+
+    return (inverted_coord_index,sorted_coord)
+
+"""
 def range_query(range_query_min_coord,range_query_max_coord,inverted_coord_index,sorted_coord):
     output = set()
     for j in range(0,len(range_query_min_coord)):
         output_j = set()
         min = range_query_min_coord[j]
         max = range_query_max_coord[j]
-        i_min = binary_search(min,sorted_coord[j])
-        i_max = binary_search(max,sorted_coord[j])
+        i_min = search_min(min,sorted_coord[j])
+        i_max = search_max(max,sorted_coord[j])
         if i_min != -1 and i_max != -1:
             for i in range(i_min,i_max+1):
                 v = sorted_coord[j][i]
                 v_objects = inverted_coord_index[j][v]
-                output_j.union(v_objects)
-            output.union(output_j) if j == 0 else output.intersection(output_j)
+                output_j = output_j.union(v_objects)
+        output = output.union(output_j) if j == 0 else output.intersection(output_j)
+    return output
+"""
+
+def range_query(range_query_min_coord,range_query_max_coord,inverted_coord_index,sorted_coord):
+    new_coord = [(j,range_query_max_coord[j]-range_query_min_coord[j]) for j in range(0,len(range_query_min_coord))]
+    new_coord_sorted = sorted(new_coord, key=lambda tup: tup[1])
+    output = set()
+    #for j in range(0,len(range_query_min_coord)):
+    count = 0
+    for (j,_) in new_coord_sorted:
+        output_j = []
+        min = range_query_min_coord[j]
+        max = range_query_max_coord[j]
+        i_min = search_min(min,sorted_coord[j])
+        i_max = search_max(max,sorted_coord[j])
+        if i_min != -1 and i_max != -1:
+            for i in range(i_min,i_max+1):
+                v = sorted_coord[j][i]
+                v_objects = inverted_coord_index[j][v]
+                if count == 0:
+                    output_j += v_objects
+                else:
+                    for o in v_objects:
+                        if o in output:
+                            output_j.append(o)
+        output = set(output_j)
+        if len(output) == 0:
+            return output
+        count += 1
     return output
 
+def range_query_incremental(vectors,range_query_min_coord,range_query_max_coord,inverted_coord_index,sorted_coord,start_j):
+    filtered_coord = set(range(0,len(range_query_min_coord)))
+    filtered_coord.remove(start_j)
+    filtered_coord_aug = [(j,range_query_max_coord[j]-range_query_min_coord[j]) for j in filtered_coord]
+    filtered_coord_aug_sorted = sorted(filtered_coord_aug, key=lambda tup: tup[1])
+    new_coord = [(start_j,-1)] + filtered_coord_aug_sorted
+    output = set()
+    #for j in range(0,len(range_query_min_coord)):
+    count = 0
+    for (j,_) in new_coord:
+        if count > 0:
+            (inverted_coord_index,sorted_coord) = range_query_setup_incremental(vectors,output,j)
+        output_j = []
+        min = range_query_min_coord[j]
+        max = range_query_max_coord[j]
+        i_min = search_min(min,sorted_coord)
+        i_max = search_max(max,sorted_coord)
+        if i_min != -1 and i_max != -1:
+            for i in range(i_min,i_max+1):
+                v = sorted_coord[i]
+                v_objects = inverted_coord_index[v]
+                if count == 0:
+                    output_j += v_objects
+                else:
+                    for o in v_objects:
+                        if o in output:
+                            output_j.append(o)
+        output = set(output_j)
+        if len(output) == 0:
+            return output
+        count += 1
+    return output
+
+def range_query_naive(vectors,range_query_min_coord,range_query_max_coord):
+    new_coord = [(j,range_query_max_coord[j]-range_query_min_coord[j]) for j in range(0,len(range_query_min_coord))]
+    new_coord_sorted = sorted(new_coord, key=lambda tup: tup[1])
+    output = range(0,len(vectors))
+    for (j,_) in new_coord_sorted:
+        new_output = []
+        for i in output:
+            if vectors[i][j] >= range_query_min_coord[j] and vectors[i][j] <= range_query_max_coord[j]:
+                new_output.append(i)
+        output = new_output
+        if len(output) == 0:
+            return set()
+    return set(output)
+
 #return the index in of the smallest value in <values> that is >= <key> (return -1 is <key> is > of all values in <values>)
-def binary_search(key,values):
+def search_min(key,values):
+    #return linear_search_min(key,values)
+    return binary_search_min(key,values)
+
+#return the index in of the largest value in <values> that is <= <key> (return -1 is <key> is < of all values in <values>)
+def search_max(key,values):
+    #return linear_search_max(key,values)
+    return binary_search_max(key,values)
+
+def linear_search_min(key,values):
+    if len(values) == 0 or key > values[-1]:
+        return -1
     for i in range(0,len(values)):
         if values[i] >= key:
             return i
     return -1
+
+def linear_search_max(key,values):
+    if len(values) == 0 or key < values[0]:
+        return -1
+    for i in reversed(range(0,len(values))):
+        if values[i] <= key:
+            return i
+    return -1
+
+def binary_search_min(key,values):
+    if len(values) == 0 or key > values[-1]:
+        return -1
+    l = 0
+    r = len(values)-1
+    while r >= l:
+        m = int((l+r)/2)
+        if key == values[m]:
+            return m
+        if key < values[m]:
+            r = m-1
+        else:
+            l = m+1
+    return m if values[m] > key else m+1
+
+def binary_search_max(key,values):
+    if len(values) == 0 or key < values[0]:
+        return -1
+    l = 0
+    r = len(values)-1
+    while r >= l:
+        m = int((l+r)/2)
+        if key == values[m]:
+            return m
+        if key < values[m]:
+            r = m-1
+        else:
+            l = m+1
+    return m if values[m] < key else m-1
 
 def get_first_order_moment(vectors):
     moments = [float(vectors[0][j]) for j in range(0,len(vectors[0]))]
@@ -93,17 +235,21 @@ def euclidean_dist(v1,v2):
     return d
 
 #area of the minimum bounding hyper-rectangle
-def mbr_area(embeddings):
-    (min_coordinates,max_coordinates) = minmax_coordinates(embeddings)
+def mbr_area(min_coordinates,max_coordinates):
     area = 1.0
     for i in range(0,len(min_coordinates)):
         area *= (max_coordinates[i] - min_coordinates[i])
     return area
 
 #length of the diagonal of the minimum bounding hyper-rectangle
-def mbr_diagonal(embeddings):
-    (min_coordinates,max_coordinates) = minmax_coordinates(embeddings)
+def mbr_diagonal(min_coordinates,max_coordinates):
     return euclidean_dist(min_coordinates,max_coordinates)
+
+def min_mbr_edge(min_coordinates,max_coordinates):
+    new_coord = [(j,max_coordinates[j]-min_coordinates[j]) for j in range(0,len(min_coordinates))]
+    new_coord_sorted = sorted(new_coord, key=lambda tup: tup[1])
+    (j,_) = new_coord_sorted[0]
+    return j
 
 def centroid(embeddings):
     c = [embeddings[0][j] for j in range(0,len(embeddings[0]))]
@@ -157,15 +303,25 @@ def reduce_dim(embeddings):
 
 
 def debug():
-    print(binary_search(8,[7,11,15,18,20]))
-    print(binary_search(15,[7,11,15,18,20]))
-    print(binary_search(19,[7,11,15,18,20]))
-    print(binary_search(25,[7,11,15,18,20]))
-    print(binary_search(5,[7,11,15,18,20]))
     #vectors = [[1,2,3],[3,2,1],[2,2,2]]
     #print(get_first_order_moment(vectors))
     #print(get_second_order_moment(vectors))
     #print(fast_avg_euclidean_dist([[2,2,3],[1,3,4]],[[2,2,3],[1,3,4]]))
+    print(str(search_min(8,[7,11,15,18,20])) + ' ' + str(search_max(8,[7,11,15,18,20])))
+    print(str(search_min(15,[7,11,15,18,20])) + ' ' + str(search_max(15,[7,11,15,18,20])))
+    print(str(search_min(19,[7,11,15,18,20])) + ' ' + str(search_max(19,[7,11,15,18,20])))
+    print(str(search_min(25,[7,11,15,18,20])) + ' ' + str(search_max(25,[7,11,15,18,20])))
+    print(str(search_min(5,[7,11,15,18,20])) + ' ' + str(search_max(5,[7,11,15,18,20])))
+
+    vectors = [[1,3,5],[3,6,8],[-1,6,-5],[3,-3,0],[4,-1,0]]
+    (inverted_coord_index,sorted_coord) = range_query_setup(vectors)
+    #print(inverted_coord_index)
+    #print(sorted_coord)
+    range_query_min_coord = [1,-5,0]
+    range_query_max_coord = [10,10,5]
+    range_query_result = range_query(range_query_min_coord,range_query_max_coord,inverted_coord_index,sorted_coord)
+    print(range_query_result)
+
     sys.exit(-1)
 
 if __name__ == '__main__':
@@ -199,35 +355,41 @@ if __name__ == '__main__':
     (entity2id, relation2id) = load.load_openke_dataset(kg_folder)
     print('OpenKE dataset successfully loaded!')
 
-    #print(reduce_dim(ent_embeddings))
-    #sys.exit(-1)
-
     print('Computing (first-order and second-order) moments of all entities and relations')
     fo_moment_alle = get_first_order_moment(ent_embeddings)
     so_moment_alle = get_second_order_moment(ent_embeddings)
     fo_moment_allr = get_first_order_moment(rel_embeddings)
     so_moment_allr = get_second_order_moment(rel_embeddings)
 
-    #print('Computing entity MBRs')
-    #alle_mbr_area = mbr_area(ent_embeddings)
-    #print('Computing entity-relation MBRs')
-    #aller_mbr_area = mbr_area(ent_embeddings+rel_embeddings)
-    #print('Computing relation MBRs')
-    #allr_mbr_area = mbr_area(rel_embeddings)
-    print('Computing entity MBRs')
-    alle_mbr_diag = mbr_diagonal(ent_embeddings)
-    print('Computing entity-relation MBRs')
-    aller_mbr_diag = mbr_diagonal(ent_embeddings+rel_embeddings)
-    print('Computing relation MBRs')
-    allr_mbr_diag = mbr_diagonal(rel_embeddings)
+    print('Computing MBRs')
+    (alle_min_coord,alle_max_coord) = minmax_coordinates(ent_embeddings)
+    (aller_min_coord,aller_max_coord) = minmax_coordinates(ent_embeddings+rel_embeddings)
+    (allr_min_coord,allr_max_coord) = minmax_coordinates(rel_embeddings)
+    alle_mbr_diag = mbr_diagonal(alle_min_coord,alle_max_coord)
+    aller_mbr_diag = mbr_diagonal(aller_min_coord,aller_max_coord)
+    allr_mbr_diag = mbr_diagonal(allr_min_coord,allr_max_coord)
+
+    #print('Computing data structures for range queries')
+    #(inverted_coord_index_e,sorted_coord_e) = range_query_setup(ent_embeddings)
+    #(inverted_coord_index_er,sorted_coord_er) = range_query_setup(ent_embeddings+rel_embeddings)
+    #(inverted_coord_index_r,sorted_coord_r) = range_query_setup(rel_embeddings)
+
+    #print('Computing data structures for range queries (incremental query processing)')
+    #min_alle_mbr_edge = min_mbr_edge(alle_min_coord,alle_max_coord)
+    #min_allr_mbr_edge = min_mbr_edge(allr_min_coord,allr_max_coord)
+    #(inverted_coord_index_e_incr,sorted_coord_e_incr) = range_query_setup_incremental(ent_embeddings,set(range(0,len(ent_embeddings))),min_alle_mbr_edge)
+    #(inverted_coord_index_r_incr,sorted_coord_r_incr) = range_query_setup_incremental(rel_embeddings,set(range(0,len(rel_embeddings))),min_allr_mbr_edge)
 
     heading = 'RULE' + '\t' + 'EXAMPLE' + '\t'\
+    '#ENTITIES_EXAMPLE' + '\t' + '#RELATIONS_EXAMPLE' + '\t'\
+    '#ENTITIES_E-MBR' + '\t' + '#ENTITIES_ER-MBR' + '\t'\
+    '#RELATIONS_R-MBR' + '\t' + '#RELATIONS_ER-MBR' + '\t'\
     'AVG_DIST_E2E' + '\t' + 'AVG_DIST_E2ALLE' + '\t'\
     'AVG_DIST_E2R' + '\t' + 'AVG_DIST_E2ALLR' + '\t'\
     'AVG_DIST_R2R' + '\t' + 'AVG_DIST_R2ALLR' + '\t'\
-    'E_MBR_DIAG' + '\t' + 'ALLE_MBR_DIAG' + '\t'\
-    'ER_MBR_DIAG' + '\t' + 'ALLER_MBR_DIAG' + '\t'\
-    'R_MBR_DIAG' + '\t' + 'ALLR_MBR_DIAG'
+    'E-MBR_DIAG' + '\t' + 'ALLE-MBR_DIAG' + '\t'\
+    'ER-MBR_DIAG' + '\t' + 'ALLER-MBR_DIAG' + '\t'\
+    'R-MBR_DIAG' + '\t' + 'ALLR-MBR_DIAG'
     if rule_support_file and output_file:
         count = 0
         rules = codecs.open(rule_support_file, 'r', encoding='utf-8', errors='ignore')
@@ -245,6 +407,7 @@ if __name__ == '__main__':
         n_examples = 0
         n_rule_entities = 0
         n_rule_relations = 0
+        print('Started processing rules')
         while line:
             tokens = line.split('\t')
             rule = tokens[0]
@@ -266,14 +429,29 @@ if __name__ == '__main__':
             r2r_avgdist = fast_avg_euclidean_dist_momentsgiven(fo_moment_currentr,fo_moment_currentr,so_moment_currentr,so_moment_currentr)
             r2allr_avgdist = fast_avg_euclidean_dist_momentsgiven(fo_moment_currentr,fo_moment_allr,so_moment_currentr,so_moment_allr)
 
-            #e_mbr_area = mbr_area(current_ent_embeddings)
-            #er_mbr_area = mbr_area(current_ent_embeddings+current_rel_embeddings)
-            #r_mbr_area = mbr_area(current_rel_embeddings)
-            e_mbr_diag = mbr_diagonal(current_ent_embeddings)
-            er_mbr_diag = mbr_diagonal(current_ent_embeddings+current_rel_embeddings)
-            r_mbr_diag = mbr_diagonal(current_rel_embeddings)
+            (e_mbr_min_coord,e_mbr_max_coord) = minmax_coordinates(current_ent_embeddings)
+            (er_mbr_min_coord,er_mbr_max_coord) = minmax_coordinates(current_ent_embeddings+current_rel_embeddings)
+            (r_mbr_min_coord,r_mbr_max_coord) = minmax_coordinates(current_rel_embeddings)
+            start = time.time()
+            #e_mbr_entities = range_query(e_mbr_min_coord,e_mbr_max_coord,inverted_coord_index_e,sorted_coord_e)
+            #er_mbr_entities = range_query(er_mbr_min_coord,er_mbr_max_coord,inverted_coord_index_e,sorted_coord_e)
+            #r_mbr_relations = range_query(r_mbr_min_coord,r_mbr_max_coord,inverted_coord_index_r,sorted_coord_r)
+            #er_mbr_relations = range_query(er_mbr_min_coord,er_mbr_max_coord,inverted_coord_index_r,sorted_coord_r)
+            #e_mbr_entities = range_query_incremental(ent_embeddings,e_mbr_min_coord,e_mbr_max_coord,inverted_coord_index_e_incr,sorted_coord_e_incr,min_alle_mbr_edge)
+            #er_mbr_entities = range_query_incremental(ent_embeddings,er_mbr_min_coord,er_mbr_max_coord,inverted_coord_index_e_incr,sorted_coord_e_incr,min_alle_mbr_edge)
+            #r_mbr_relations = range_query_incremental(rel_embeddings,r_mbr_min_coord,r_mbr_max_coord,inverted_coord_index_r_incr,sorted_coord_r_incr,min_allr_mbr_edge)
+            #er_mbr_relations = range_query_incremental(rel_embeddings,er_mbr_min_coord,er_mbr_max_coord,inverted_coord_index_r_incr,sorted_coord_r_incr,min_allr_mbr_edge)
+            e_mbr_entities = range_query_naive(ent_embeddings,e_mbr_min_coord,e_mbr_max_coord)
+            er_mbr_entities = range_query_naive(ent_embeddings,er_mbr_min_coord,er_mbr_max_coord)
+            r_mbr_relations = range_query_naive(rel_embeddings,r_mbr_min_coord,r_mbr_max_coord)
+            er_mbr_relations = range_query_naive(rel_embeddings,er_mbr_min_coord,er_mbr_max_coord)
+            end = time.time()
 
-            output_stats = [e2e_avgdist,e2alle_avgdist,e2r_avgdist,e2allr_avgdist,r2r_avgdist,r2allr_avgdist,e_mbr_diag,alle_mbr_diag,er_mbr_diag,aller_mbr_diag,r_mbr_diag,allr_mbr_diag]
+            e_mbr_diag = mbr_diagonal(e_mbr_min_coord,e_mbr_max_coord)
+            er_mbr_diag = mbr_diagonal(er_mbr_min_coord,er_mbr_max_coord)
+            r_mbr_diag = mbr_diagonal(r_mbr_min_coord,r_mbr_max_coord)
+
+            output_stats = [len(entities),len(relations),len(e_mbr_entities),len(er_mbr_entities),len(r_mbr_relations),len(er_mbr_relations),e2e_avgdist,e2alle_avgdist,e2r_avgdist,e2allr_avgdist,r2r_avgdist,r2allr_avgdist,e_mbr_diag,alle_mbr_diag,er_mbr_diag,aller_mbr_diag,r_mbr_diag,allr_mbr_diag]
 
             if rule == current_rule:
                 for i in range(0,len(output_stats)):
@@ -339,7 +517,7 @@ if __name__ == '__main__':
 
             line = rules.readline()
             count += 1
-            print('#processed lines: ' + str(count))
+            print('#processed lines: ' + str(count) + '---Range-query time: ' + str(int(round((end-start)*1000))) + 'ms')
         rules.close()
         output.close()
     else:

@@ -476,11 +476,12 @@ if __name__ == '__main__':
                     rule_stats_stddev = [math.sqrt(max(0,float(rule_stats_square_sum[i])/n_examples - rule_stats_avg[i]*rule_stats_avg[i])) for i in range(0,len(rule_stats_square_sum))]
                     #for i in range(0,len(rule_stats)):
                     #    rule_stats[i] = float(rule_stats[i])/n_examples
-                    output_line_avg = rule + '\t' + 'AVG STATS (over ' + str(n_examples) + ' examples)' + '\t' + '\t'.join([str(s) for s in rule_stats_avg])
-                    output_line_stddev = rule + '\t' + 'STD-DEV STATS (over ' + str(n_examples) + ' examples)' + '\t' + '\t'.join([str(s) for s in rule_stats_stddev])
+                    output_line_avg = current_rule + '\t' + 'AVG STATS (over ' + str(n_examples) + ' examples)' + '\t' + '\t'.join([str(s) for s in rule_stats_avg])
+                    output_line_stddev = current_rule + '\t' + 'STD-DEV STATS (over ' + str(n_examples) + ' examples)' + '\t' + '\t'.join([str(s) for s in rule_stats_stddev])
                     output.write('\n' + output_line_avg)
                     output.write('\n' + output_line_stddev)
 
+                    """
                     for i in range(0,len(fo_moment_current_rule_e)):
                         fo_moment_current_rule_e[i] = float(fo_moment_current_rule_e[i])/n_rule_entities
                     for i in range(0,len(so_moment_current_rule_e)):
@@ -497,7 +498,8 @@ if __name__ == '__main__':
                     output.write('\n' + rule + '\t' + 'AVG INTER-EXAMPLE DISTANCE BETWEEN RELATIONS' + '\t' + str(avg_interexample_dist_r))
                     output.write('\n')
                     output.flush()
-
+                    """
+                    
                 current_rule = rule
                 rule_stats_sum = [s for s in output_stats]
                 rule_stats_square_sum = [s*s for s in output_stats]

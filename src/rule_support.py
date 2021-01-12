@@ -5,11 +5,15 @@ kg = None
 reverse_kg = None
 rules = None
 
-def get_facts(head,predicate,tail):
+def get_facts(head,predicate,tail,negative):
     facts = []
     if head[0] != '?' and tail[0] != '?': #both head and tail have been already instantiated
-        if predicate in kg.keys() and head in kg[predicate].keys() and tail in kg[predicate][head]:
-            facts.append([head,predicate,tail])
+        if not negative:
+            if predicate in kg.keys() and head in kg[predicate].keys() and tail in kg[predicate][head]:
+                facts.append([head,predicate,tail])
+        else:
+            if predicate not in kg.keys() or head not in kg[predicate].keys() or tail not in kg[predicate][head]:
+                facts.append([head,predicate,tail])
     elif head[0] != '?': #only head has been already instantiated
         if predicate in kg.keys() and head in kg[predicate].keys():
             for t in kg[predicate][head]:
@@ -26,16 +30,16 @@ def get_facts(head,predicate,tail):
     return facts
 
 
-def rule_support(flat_rule):
+def rule_support(flat_rule,negative):
     #print("Flat rule: " + str(flat_rule))
     var = {}
     support = []
     current_instantiation = []
-    rule_support_rec(flat_rule,var,support,current_instantiation)
+    rule_support_rec(flat_rule,var,support,current_instantiation,negative)
     return support
 
 
-def rule_support_rec(remaining_atoms,var,support,current_instantiation):
+def rule_support_rec(remaining_atoms,var,support,current_instantiation,negative):
     if not remaining_atoms:
         support.append(copy.deepcopy(current_instantiation))
         #support.append(current_instantiation)
@@ -47,7 +51,7 @@ def rule_support_rec(remaining_atoms,var,support,current_instantiation):
         head_i = head if head not in var.keys() else var[head]
         tail_i = tail if tail not in var.keys() else var[tail]
 
-        a_kg_facts = get_facts(head_i,predicate,tail_i)
+        a_kg_facts = get_facts(head_i,predicate,tail_i,False) if len(remaining_atoms) > 1 else get_facts(head_i,predicate,tail_i,negative)
 
         for fact in a_kg_facts:
             current_instantiation.append(fact)
@@ -58,7 +62,7 @@ def rule_support_rec(remaining_atoms,var,support,current_instantiation):
             if tail_i == tail: #tail not instantiated by previous recursive calls
                 fact_tail = fact[2]
                 var[tail] = fact_tail
-            rule_support_rec(remaining_atoms[1:],var,support,current_instantiation)
+            rule_support_rec(remaining_atoms[1:],var,support,current_instantiation,negative)
 
             #clean-up local instantiations and variable bindings
             current_instantiation.pop()
@@ -76,8 +80,10 @@ def debug(p_ea, p_ab, p_eb):
     rule = rules[134]
     #rule = rules[36]
 
-    flat_rule = rule[0:1] + rule[1]
-    support = rule_support(flat_rule)
+    #flat_rule = rule[0:1] + rule[1]
+    flat_rule = rule[0] + rule[-1:]
+    #support = rule_support(flat_rule,False)
+    support = rule_support(flat_rule,True)
     print("Support (size " + str(len(support)) + "):")
     for x in support:
         print(x)
@@ -93,6 +99,7 @@ def debug(p_ea, p_ab, p_eb):
     print("\nDEBUG (size " + str(len(s)) + "):")
     for x in s:
         print(x)
+    sys.exit(-1)
 
 
 def parse_rule(example):
@@ -124,13 +131,14 @@ if __name__ == '__main__':
     rule_file = None
     kg_file = None
     output_file = None
-    short_params = "k:r:o:"
-    long_params = ["kgfile=","rulefile=","outputfile="]
+    negative_support = False
+    short_params = "k:r:o:n"
+    long_params = ["kgfile=","rulefile=","outputfile=","negativesupport"]
     try:
         arguments, values = getopt.getopt(sys.argv[1:], short_params, long_params)
     except getopt.error as err:
         # Output error, and return with an error code
-        print("rule_support.py -k <kg_file> -r <rule_file>")
+        print("rule_support.py -k <kg_file> -r <rule_file> -o <output_file> -n")
         #print (str(err))
         sys.exit(2)
 
@@ -141,6 +149,8 @@ if __name__ == '__main__':
             rule_file = value
         elif arg in ("-o", "--outputfile"):
             output_file = value
+        elif arg in ("-n", "--negativesupport"):
+            negative_support = True
 
     (kg, reverse_kg) = load.load_kg(kg_file)
     rules = load.load_rules(rule_file)
@@ -167,12 +177,13 @@ if __name__ == '__main__':
     tot_examples = 0
     if output_file:
         output = open(output_file, 'w')
-        output.write('RULE' + '\t' + 'EXAMPLE' + '\t' + 'ENTITIES' + '\t' + 'RELATIONS')
+        s = 'NEGATIVE_' if negative_support else "POSITIVE_"
+        output.write('RULE' + '\t' + s + 'EXAMPLE' + '\t' + 'ENTITIES' + '\t' + 'RELATIONS')
         for rule in rules:
             #flat_rule = rule[0:1] + rule[1]
             flat_rule = rule[0] + rule[-1:]
             (rule_string, _, _) = parse_rule(flat_rule)
-            support = rule_support(flat_rule)
+            support = rule_support(flat_rule,negative_support)
             tot_examples += len(support)
             for example in support:
                 (example_string, entities, relations) = parse_rule(example)

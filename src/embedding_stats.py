@@ -380,7 +380,7 @@ if __name__ == '__main__':
     #(inverted_coord_index_e_incr,sorted_coord_e_incr) = range_query_setup_incremental(ent_embeddings,set(range(0,len(ent_embeddings))),min_alle_mbr_edge)
     #(inverted_coord_index_r_incr,sorted_coord_r_incr) = range_query_setup_incremental(rel_embeddings,set(range(0,len(rel_embeddings))),min_allr_mbr_edge)
 
-    heading = 'RULE' + '\t' + 'EXAMPLE' + '\t'\
+    heading = 'RULE' + '\t' + 'POSITIVE_EXAMPLE' + '\t'\
     '#ENTITIES_EXAMPLE' + '\t' + '#RELATIONS_EXAMPLE' + '\t'\
     '#ENTITIES_E-MBR' + '\t' + '#ENTITIES_ER-MBR' + '\t'\
     '#RELATIONS_R-MBR' + '\t' + '#RELATIONS_ER-MBR' + '\t'\
@@ -476,8 +476,8 @@ if __name__ == '__main__':
                     rule_stats_stddev = [math.sqrt(max(0,float(rule_stats_square_sum[i])/n_examples - rule_stats_avg[i]*rule_stats_avg[i])) for i in range(0,len(rule_stats_square_sum))]
                     #for i in range(0,len(rule_stats)):
                     #    rule_stats[i] = float(rule_stats[i])/n_examples
-                    output_line_avg = current_rule + '\t' + 'AVG STATS (over ' + str(n_examples) + ' examples)' + '\t' + '\t'.join([str(s) for s in rule_stats_avg])
-                    output_line_stddev = current_rule + '\t' + 'STD-DEV STATS (over ' + str(n_examples) + ' examples)' + '\t' + '\t'.join([str(s) for s in rule_stats_stddev])
+                    output_line_avg = current_rule + '\t' + 'RULE AVG STATS (over ' + str(n_examples) + ' examples)' + '\t' + '\t'.join([str(s) for s in rule_stats_avg])
+                    output_line_stddev = current_rule + '\t' + 'RULE STD-DEV STATS (over ' + str(n_examples) + ' examples)' + '\t' + '\t'.join([str(s) for s in rule_stats_stddev])
                     output.write('\n' + output_line_avg)
                     output.write('\n' + output_line_stddev)
 
@@ -499,7 +499,7 @@ if __name__ == '__main__':
                     output.write('\n')
                     output.flush()
                     """
-                    
+
                 current_rule = rule
                 rule_stats_sum = [s for s in output_stats]
                 rule_stats_square_sum = [s*s for s in output_stats]

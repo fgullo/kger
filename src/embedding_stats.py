@@ -463,6 +463,28 @@ if __name__ == '__main__':
 
         entitypair2relation = get_entitypairs2allfacts(first_key,rearranged_kg,entity2id,relation2id)
         print(entitypair2relation)
+
+
+        counter = 0
+        printed = False
+        for k in entitypairs2rulefacts.keys():
+            if len(k) > 2:
+                v = entitypairs2rulefacts[k]
+                entitypair2relation = get_entitypairs2allfacts(k,rearranged_kg,entity2id,relation2id)
+                moreone = False
+                for p in entitypair2relation.keys():
+                    if len(entitypair2relation[p]) > 1:
+                        moreone = True
+                if moreone:
+                    counter += 1
+                    if not printed:
+                        print(k)
+                        print(v)
+                        print(str(len(v)))
+                        print(entitypair2relation)
+                        printed = True
+
+        print(str(counter) + ' over a total of ' + str(len(entitypairs2rulefacts)))
         sys.exit(-1)
 
         count = 0

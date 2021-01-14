@@ -301,12 +301,12 @@ def reduce_dim(embeddings):
             dims_tobefiltered += vj
     return dims_tobefiltered
 
-def get_entitypairs2rulefacts(rule2example):
+def get_entitypairs2rulefacts(rule2example,entity2id,rule2id):
     entitypairs2rulefacts = {}
     for t in rule2example.values():
         for ex in t:
             example = ex[0]
-            facts = flattenize(example)
+            facts = flattenize(example,entity2id,rule2id)
             key = []
             for f in facts:
                 e1 = f[0]
@@ -319,29 +319,42 @@ def get_entitypairs2rulefacts(rule2example):
             entitypairs2rulefacts[key].add(frozenset(facts))
     return entitypairs2rulefacts
 
-def get_entitypairs2allfacts(entitypairs,kg,entity2id,relation2id):
-    entity_ids = set()
+def get_entitypairs2allrelations(entitypairs,kg,entity2id,relation2id):
+    entitypair2allrelations = {}
     for (e1,e2) in entitypairs:
-        entity_ids.add(entity2id[e1])
-        entity_ids.add(entity2id[e2])
+        epair = (e1,e2)
+        if e1 in kg.keys() and e2 in kg[e1]:
+            if epair not in entitypair2allrelations.keys():
+                entitypair2allrelations[epair] = set()
+            for rel in kg[e1][e2]:
+                entitypair2allrelations[epair].add(rel)
+    return entitypair2allrelations
 
-    entitypair2relation = {}
-    for (e1,e2) in entitypairs:
-        e1_id = entity2id[e1]
-        e2_id = entity2id[e2]
-        epair = (e1_id,e2_id)
-        if e1_id in kg.keys() and e2_id in kg[e1_id]:
-            if epair not in entitypair2relation.keys():
-                entitypair2relation[epair] = set()
-            for rel_id in kg[e1_id][e2_id]:
-                entitypair2relation[epair].add(rel_id)
-    return entitypair2relation
+def get_entitypairs2allfacts(entitypair2allrelations):
+    entitypairs2allfacts = {}
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    remaining_pairs = list(get_entitypairs2allrelations.keys())
+    current_facts = set()
+    get_entitypairs2allfacts_rec(entitypair2allrelations,remaining_pairs,current_facts)
+    return entitypairs2allfacts
 
-def flattenize(rule):
+def get_entitypairs2allfacts_rec(entitypair2allrelations,remaining_pairs,current_facts):
+    return
+
+def flattenize(rule,entity2id,relation2id):
     flat_rule_set = set()
     flat_rule = rule[0] + rule[-1:]
     for f in flat_rule:
-        f_tuple = (f[0], f[1], f[2])
+        f_tuple = (entity2id[f[0]], relation2id[f[1]], entity2id[f[2]])
         flat_rule_set.add(f_tuple)
     return flat_rule_set
 
@@ -452,7 +465,7 @@ if __name__ == '__main__':
     'R-MBR_DIAG' + '\t' + 'ALLR-MBR_DIAG'
     if rule_support_file and output_file:
         rule2example = load.load_rule_support(rule_support_file)
-        entitypairs2rulefacts = get_entitypairs2rulefacts(rule2example)
+        entitypairs2rulefacts = get_entitypairs2rulefacts(rule2example,entity2id,relation2id)
 
         first_key = next(iter(entitypairs2rulefacts.keys()))
         first_value = entitypairs2rulefacts[first_key]
@@ -461,7 +474,7 @@ if __name__ == '__main__':
         print(first_value)
         print(str(len(first_value)))
 
-        entitypair2relation = get_entitypairs2allfacts(first_key,rearranged_kg,entity2id,relation2id)
+        entitypair2relation = get_entitypairs2allrelations(first_key,rearranged_kg,entity2id,relation2id)
         print(entitypair2relation)
 
 
@@ -470,7 +483,7 @@ if __name__ == '__main__':
         for k in entitypairs2rulefacts.keys():
             if len(k) > 2:
                 v = entitypairs2rulefacts[k]
-                entitypair2relation = get_entitypairs2allfacts(k,rearranged_kg,entity2id,relation2id)
+                entitypair2relation = get_entitypairs2allrelations(k,rearranged_kg,entity2id,relation2id)
                 moreone = False
                 for p in entitypair2relation.keys():
                     if len(entitypair2relation[p]) > 1:

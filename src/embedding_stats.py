@@ -301,6 +301,65 @@ def reduce_dim(embeddings):
             dims_tobefiltered += vj
     return dims_tobefiltered
 
+def get_entitypairs2rulefacts(rule2example):
+    entitypairs2rulefacts = {}
+    for t in rule2example.values():
+        for ex in t:
+            example = ex[0]
+            facts = flattenize(example)
+            key = []
+            for f in facts:
+                e1 = f[0]
+                e2 = f[2]
+                e12 = (e1,e2)
+                key.append(e12)
+            key = frozenset(key)
+            if key not in entitypairs2rulefacts.keys():
+                entitypairs2rulefacts[key] = set()
+            entitypairs2rulefacts[key].add(frozenset(facts))
+    return entitypairs2rulefacts
+
+def get_entitypairs2allfacts(entitypairs,kg,entity2id,relation2id):
+    entity_ids = set()
+    for (e1,e2) in entitypairs:
+        entity_ids.add(entity2id[e1])
+        entity_ids.add(entity2id[e2])
+
+    entitypair2relation = {}
+    for (e1,e2) in entitypairs:
+        e1_id = entity2id[e1]
+        e2_id = entity2id[e2]
+        epair = (e1_id,e2_id)
+        if e1_id in kg.keys() and e2_id in kg[e1_id]:
+            if epair not in entitypair2relation.keys():
+                entitypair2relation[epair] = set()
+            for rel_id in kg[e1_id][e2_id]:
+                entitypair2relation[epair].add(rel_id)
+    return entitypair2relation
+
+def flattenize(rule):
+    flat_rule_set = set()
+    flat_rule = rule[0] + rule[-1:]
+    for f in flat_rule:
+        f_tuple = (f[0], f[1], f[2])
+        flat_rule_set.add(f_tuple)
+    return flat_rule_set
+
+def rearrange_kg(kg):
+    rearranged_kg = {}
+    for rel in kg.keys():
+        for subj in kg[rel]:
+            if subj not in rearranged_kg.keys():
+                rearranged_kg[subj] = {}
+            #print(rel)
+            #print(subj)
+            #print(kg[rel][subj])
+            for obj in kg[rel][subj]:
+                obj = int(obj)
+                if obj not in rearranged_kg[subj].keys():
+                    rearranged_kg[subj][obj] = set()
+                rearranged_kg[subj][obj].add(rel)
+    return rearranged_kg
 
 def debug():
     #vectors = [[1,2,3],[3,2,1],[2,2,2]]
@@ -352,7 +411,8 @@ if __name__ == '__main__':
 
     (ent_embeddings,rel_embeddings) = load.load_embeddings(embedding_file)
     print('Embeddings successfully loaded!')
-    (entity2id, relation2id) = load.load_openke_dataset(kg_folder)
+    (entity2id,relation2id,kg) = load.load_openke_dataset(kg_folder)
+    rearranged_kg = rearrange_kg(kg)
     print('OpenKE dataset successfully loaded!')
 
     print('Computing (first-order and second-order) moments of all entities and relations')
@@ -391,6 +451,20 @@ if __name__ == '__main__':
     'ER-MBR_DIAG' + '\t' + 'ALLER-MBR_DIAG' + '\t'\
     'R-MBR_DIAG' + '\t' + 'ALLR-MBR_DIAG'
     if rule_support_file and output_file:
+        rule2example = load.load_rule_support(rule_support_file)
+        entitypairs2rulefacts = get_entitypairs2rulefacts(rule2example)
+
+        first_key = next(iter(entitypairs2rulefacts.keys()))
+        first_value = entitypairs2rulefacts[first_key]
+        print(len(entitypairs2rulefacts.keys()))
+        print(first_key)
+        print(first_value)
+        print(str(len(first_value)))
+
+        entitypair2relation = get_entitypairs2allfacts(first_key,rearranged_kg,entity2id,relation2id)
+        print(entitypair2relation)
+        sys.exit(-1)
+
         count = 0
         rules = codecs.open(rule_support_file, 'r', encoding='utf-8', errors='ignore')
         output = open(output_file, 'w')

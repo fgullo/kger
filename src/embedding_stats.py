@@ -319,7 +319,7 @@ def get_entitypairs2rulefacts(rule2example,entity2id,rule2id):
             entitypairs2rulefacts[key].add(frozenset(facts))
     return entitypairs2rulefacts
 
-def get_entitypairs2allrelations(entitypairs,kg,entity2id,relation2id):
+def get_entitypair2allrelations(entitypairs,kg,entity2id,relation2id):
     entitypair2allrelations = {}
     for (e1,e2) in entitypairs:
         epair = (e1,e2)
@@ -330,25 +330,52 @@ def get_entitypairs2allrelations(entitypairs,kg,entity2id,relation2id):
                 entitypair2allrelations[epair].add(rel)
     return entitypair2allrelations
 
-def get_entitypairs2allfacts(entitypair2allrelations):
-    entitypairs2allfacts = {}
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    remaining_pairs = list(get_entitypairs2allrelations.keys())
-    current_facts = set()
-    get_entitypairs2allfacts_rec(entitypair2allrelations,remaining_pairs,current_facts)
-    return entitypairs2allfacts
+def get_entitypair2relpowset(entitypair2allrelations):
+    entitypair2relpowset = {}
+    for p in entitypair2allrelations.keys():
+        powset = allsubsets(list(entitypair2allrelations[p]))
+        entitypair2relpowset[p] = powset
+    return entitypair2relpowset
 
-def get_entitypairs2allfacts_rec(entitypair2allrelations,remaining_pairs,current_facts):
-    return
+def get_allentitypairsfacts(entitypair2relpowset):
+    all_facts = set()
+    remaining_pairs = list(entitypair2relpowset.keys())
+    current_facts = set()
+    get_allentitypairsfacts_rec(entitypair2relpowset,remaining_pairs,current_facts,all_facts)
+    return all_facts
+
+def get_allentitypairsfacts_rec(entitypair2relpowset,remaining_pairs,current_facts,all_facts):
+    if len(remaining_pairs) == 0:
+        all_facts.add(frozenset(current_facts))
+    else:
+        p = remaining_pairs[0]
+        rel_powset = entitypair2relpowset[p]
+        for rset in rel_powset:
+            if rset:
+                new_facts = []
+                for r in rset:
+                    f = (p[0], r, p[1])
+                    new_facts.append(f)
+                for f in new_facts:
+                    current_facts.add(f)
+                get_allentitypairsfacts_rec(entitypair2relpowset,remaining_pairs[1:],current_facts,all_facts)
+                for f in new_facts:
+                    current_facts.remove(f)
+
+def allsubsets(s):
+    all_subsets = []
+    pow_set_size = (int) (math.pow(2, len(s)))
+    # Run from counter 000..0 to 111..1
+    for counter in range(0, pow_set_size):
+        current_s = set()
+        for j in range(0, len(s)):
+            # Check if jth bit in the
+            # counter is set If set then
+            # print jth element from set
+            if((counter & (1 << j)) > 0):
+                current_s.add(s[j])
+        all_subsets.append(current_s)
+    return all_subsets
 
 def flattenize(rule,entity2id,relation2id):
     flat_rule_set = set()
@@ -374,6 +401,56 @@ def rearrange_kg(kg):
                 rearranged_kg[subj][obj].add(rel)
     return rearranged_kg
 
+def select_dictionary_items(keys,dict):
+    new_dict = {}
+    for k in keys:
+        new_dict[k] = dict[k]
+    return new_dict
+
+def exampletostring(example):
+    s = ''
+    for atom in example[0]:
+        s += atom[0] + ' ' + atom[1] + ' ' + atom[2]
+    s += ' => '
+    s += example[1][0] + ' ' + example[1][1] + ' ' + example[1][2]
+    return s
+
+def exampletoentitypairset(example,entity2id):
+    pairset = set()
+    flat_example = example[0] + example[-1:]
+    for atom in flat_example:
+        epair = (entity2id[atom[0]], entity2id[atom[2]])
+        pairset.add(epair)
+    return pairset
+
+def get_refermbr_diag(example,nrelexample,entitypairs2allnonrulefacts,entity2id,ent_embeddings,rel_embeddings):
+    pairset = frozenset(exampletoentitypairset(example,entity2id))
+    if pairset not in entitypairs2allnonrulefacts.keys():
+        return -1.0
+
+    diag_sum = 0.0
+    count = 0
+    allnonrulefactsets = entitypairs2allnonrulefacts[pairset]
+
+    ex_entities = set()
+    for p in pairset:
+        ex_entities.add(p[0])
+        ex_entities.add(p[1])
+    ex_ent_embeddings = [ent_embeddings[e] for e in ex_entities]
+
+    for factset in allnonrulefactsets:
+        factset_rels = set()
+        for f in factset:
+            factset_rels.add(f[1])
+        if len(factset_rels) == nrelexample:
+            factset_rel_embeddings = [rel_embeddings[r] for r in factset_rels]
+            (mbr_min_coord,mbr_max_coord) = minmax_coordinates(ex_ent_embeddings+factset_rel_embeddings)
+            d = mbr_diagonal(mbr_min_coord,mbr_max_coord)
+            diag_sum += d
+            count += 1
+    diag = diag_sum/count if count > 0 else -1
+    return diag
+
 def debug():
     #vectors = [[1,2,3],[3,2,1],[2,2,2]]
     #print(get_first_order_moment(vectors))
@@ -398,6 +475,9 @@ def debug():
 
 if __name__ == '__main__':
     #debug()
+    #print(allsubsets(list([1,2,3])))
+    #sys.exit(-1)
+
     rule_support_file = None
     embedding_file = None
     kg_folder = None
@@ -461,12 +541,46 @@ if __name__ == '__main__':
     'AVG_DIST_E2R' + '\t' + 'AVG_DIST_E2ALLR' + '\t'\
     'AVG_DIST_R2R' + '\t' + 'AVG_DIST_R2ALLR' + '\t'\
     'E-MBR_DIAG' + '\t' + 'ALLE-MBR_DIAG' + '\t'\
-    'ER-MBR_DIAG' + '\t' + 'ALLER-MBR_DIAG' + '\t'\
+    'ER-MBR_DIAG' + '\t' + 'REF-ER-MBR_DIAG' + '\t' + 'ALLER-MBR_DIAG' + '\t'\
     'R-MBR_DIAG' + '\t' + 'ALLR-MBR_DIAG'
     if rule_support_file and output_file:
         rule2example = load.load_rule_support(rule_support_file)
         entitypairs2rulefacts = get_entitypairs2rulefacts(rule2example,entity2id,relation2id)
+        allruleentitypairs = set()
+        for s in entitypairs2rulefacts.keys():
+            for p in s:
+                allruleentitypairs.add(p)
+        entitypair2allrelations = get_entitypair2allrelations(allruleentitypairs,rearranged_kg,entity2id,relation2id)
+        entitypair2relpowset = get_entitypair2relpowset(entitypair2allrelations)
+        entitypairs2allnonrulefacts = {}
+        for pset in entitypairs2rulefacts.keys():
+            rulefacts = entitypairs2rulefacts[pset]
+            allfacts = get_allentitypairsfacts(select_dictionary_items(pset,entitypair2relpowset))
+            nonrulefacts = set()
+            #print(rulefacts)
+            #print(allfacts)
+            #sys.exit(-1)
+            for f in allfacts:
+                if f not in rulefacts:
+                    nonrulefacts.add(f)
+            #sanity check
+            for f in rulefacts:
+                if f not in allfacts:
+                    print('ERROR!!!')
+                    print('Rule facts:')
+                    for f in rulefacts:
+                        print(f)
+                    print('\nAll facts:')
+                    for f in allfacts:
+                        print(f)
+                    sys.exit(-2)
+            if len(nonrulefacts) > 0:
+                entitypairs2allnonrulefacts[pset] = nonrulefacts
 
+        #print(len(entitypairs2rulefacts))
+        #print(len(entitypairs2allnonrulefacts))
+        #sys.exit(-1)
+        """
         first_key = next(iter(entitypairs2rulefacts.keys()))
         first_value = entitypairs2rulefacts[first_key]
         print(len(entitypairs2rulefacts.keys()))
@@ -474,163 +588,161 @@ if __name__ == '__main__':
         print(first_value)
         print(str(len(first_value)))
 
-        entitypair2relation = get_entitypairs2allrelations(first_key,rearranged_kg,entity2id,relation2id)
+        entitypair2relation = select_dictionary_items(first_key,entitypairs2allrelations)
         print(entitypair2relation)
+        allentitypairsfacts = get_allentitypairsfacts(entitypair2relation)
+        print(allentitypairsfacts)
 
 
         counter = 0
         printed = False
+        count_rulefactslessthanallfacts = 0
         for k in entitypairs2rulefacts.keys():
+            n_rulefacts = len(entitypairs2rulefacts[k])
+            n_allfacts = len(get_allentitypairsfacts(select_dictionary_items(k,entitypairs2allrelations)))
+            if n_allfacts > n_rulefacts:
+                count_rulefactslessthanallfacts += 1
             if len(k) > 2:
                 v = entitypairs2rulefacts[k]
-                entitypair2relation = get_entitypairs2allrelations(k,rearranged_kg,entity2id,relation2id)
-                moreone = False
+                entitypair2relation = select_dictionary_items(k,entitypairs2allrelations)
+                length2 = 0
+                lengthmore2 = 0
                 for p in entitypair2relation.keys():
-                    if len(entitypair2relation[p]) > 1:
-                        moreone = True
-                if moreone:
+                    if len(entitypair2relation[p]) == 2:
+                        length2 += 1
+                    elif len(entitypair2relation[p]) > 2:
+                        lengthmore2 += 1
+                if length2 >= 2 and lengthmore2 >= 0:
                     counter += 1
                     if not printed:
                         print(k)
                         print(v)
                         print(str(len(v)))
                         print(entitypair2relation)
+                        allentitypairsfacts = get_allentitypairsfacts(entitypair2relation)
+                        print(allentitypairsfacts)
                         printed = True
 
         print(str(counter) + ' over a total of ' + str(len(entitypairs2rulefacts)))
+        print('count_rulefactslessthanallfacts: ' + str(count_rulefactslessthanallfacts))
         sys.exit(-1)
+        """
 
         count = 0
-        rules = codecs.open(rule_support_file, 'r', encoding='utf-8', errors='ignore')
+        count_ref_er_mbr_nonnegativediag = 0
         output = open(output_file, 'w')
         output.write(heading)
-        line = rules.readline() #skip heading
-        line = rules.readline()
-        current_rule = ''
-        rule_stats_sum = []
-        rule_stats_square_sum = []
-        fo_moment_current_rule_e = []
-        so_moment_current_rule_e = []
-        fo_moment_current_rule_r = []
-        so_moment_current_rule_r = []
-        n_examples = 0
-        n_rule_entities = 0
-        n_rule_relations = 0
         print('Started processing rules')
-        while line:
-            tokens = line.split('\t')
-            rule = tokens[0]
-            example = tokens[1]
-            entities = tokens[2].split()
-            relations = tokens[3].split()
+        for rule in rule2example.keys():
+            rule_stats_sum = []
+            rule_stats_square_sum = []
+            fo_moment_current_rule_e = []
+            so_moment_current_rule_e = []
+            fo_moment_current_rule_r = []
+            so_moment_current_rule_r = []
+            n_rule_entities = 0
+            n_rule_relations = 0
+            n_examples = 0
+            for (example,entities,relations) in rule2example[rule]:
+                current_ent_embeddings = [ent_embeddings[entity2id[e]] for e in entities]
+                fo_moment_currente = get_first_order_moment(current_ent_embeddings)
+                so_moment_currente = get_second_order_moment(current_ent_embeddings)
+                current_rel_embeddings = [rel_embeddings[relation2id[r]] for r in relations]
+                fo_moment_currentr = get_first_order_moment(current_rel_embeddings)
+                so_moment_currentr = get_second_order_moment(current_rel_embeddings)
 
-            current_ent_embeddings = [ent_embeddings[entity2id[e]] for e in entities]
-            fo_moment_currente = get_first_order_moment(current_ent_embeddings)
-            so_moment_currente = get_second_order_moment(current_ent_embeddings)
-            current_rel_embeddings = [rel_embeddings[relation2id[r]] for r in relations]
-            fo_moment_currentr = get_first_order_moment(current_rel_embeddings)
-            so_moment_currentr = get_second_order_moment(current_rel_embeddings)
+                e2e_avgdist = fast_avg_euclidean_dist_momentsgiven(fo_moment_currente,fo_moment_currente,so_moment_currente,so_moment_currente)
+                e2alle_avgdist = fast_avg_euclidean_dist_momentsgiven(fo_moment_currente,fo_moment_alle,so_moment_currente,so_moment_alle)
+                e2r_avgdist = fast_avg_euclidean_dist_momentsgiven(fo_moment_currente,fo_moment_currentr,so_moment_currente,so_moment_currentr)
+                e2allr_avgdist = fast_avg_euclidean_dist_momentsgiven(fo_moment_currente,fo_moment_allr,so_moment_currente,so_moment_allr)
+                r2r_avgdist = fast_avg_euclidean_dist_momentsgiven(fo_moment_currentr,fo_moment_currentr,so_moment_currentr,so_moment_currentr)
+                r2allr_avgdist = fast_avg_euclidean_dist_momentsgiven(fo_moment_currentr,fo_moment_allr,so_moment_currentr,so_moment_allr)
 
-            e2e_avgdist = fast_avg_euclidean_dist_momentsgiven(fo_moment_currente,fo_moment_currente,so_moment_currente,so_moment_currente)
-            e2alle_avgdist = fast_avg_euclidean_dist_momentsgiven(fo_moment_currente,fo_moment_alle,so_moment_currente,so_moment_alle)
-            e2r_avgdist = fast_avg_euclidean_dist_momentsgiven(fo_moment_currente,fo_moment_currentr,so_moment_currente,so_moment_currentr)
-            e2allr_avgdist = fast_avg_euclidean_dist_momentsgiven(fo_moment_currente,fo_moment_allr,so_moment_currente,so_moment_allr)
-            r2r_avgdist = fast_avg_euclidean_dist_momentsgiven(fo_moment_currentr,fo_moment_currentr,so_moment_currentr,so_moment_currentr)
-            r2allr_avgdist = fast_avg_euclidean_dist_momentsgiven(fo_moment_currentr,fo_moment_allr,so_moment_currentr,so_moment_allr)
+                (e_mbr_min_coord,e_mbr_max_coord) = minmax_coordinates(current_ent_embeddings)
+                (er_mbr_min_coord,er_mbr_max_coord) = minmax_coordinates(current_ent_embeddings+current_rel_embeddings)
+                (r_mbr_min_coord,r_mbr_max_coord) = minmax_coordinates(current_rel_embeddings)
 
-            (e_mbr_min_coord,e_mbr_max_coord) = minmax_coordinates(current_ent_embeddings)
-            (er_mbr_min_coord,er_mbr_max_coord) = minmax_coordinates(current_ent_embeddings+current_rel_embeddings)
-            (r_mbr_min_coord,r_mbr_max_coord) = minmax_coordinates(current_rel_embeddings)
-            start = time.time()
-            #e_mbr_entities = range_query(e_mbr_min_coord,e_mbr_max_coord,inverted_coord_index_e,sorted_coord_e)
-            #er_mbr_entities = range_query(er_mbr_min_coord,er_mbr_max_coord,inverted_coord_index_e,sorted_coord_e)
-            #r_mbr_relations = range_query(r_mbr_min_coord,r_mbr_max_coord,inverted_coord_index_r,sorted_coord_r)
-            #er_mbr_relations = range_query(er_mbr_min_coord,er_mbr_max_coord,inverted_coord_index_r,sorted_coord_r)
-            #e_mbr_entities = range_query_incremental(ent_embeddings,e_mbr_min_coord,e_mbr_max_coord,inverted_coord_index_e_incr,sorted_coord_e_incr,min_alle_mbr_edge)
-            #er_mbr_entities = range_query_incremental(ent_embeddings,er_mbr_min_coord,er_mbr_max_coord,inverted_coord_index_e_incr,sorted_coord_e_incr,min_alle_mbr_edge)
-            #r_mbr_relations = range_query_incremental(rel_embeddings,r_mbr_min_coord,r_mbr_max_coord,inverted_coord_index_r_incr,sorted_coord_r_incr,min_allr_mbr_edge)
-            #er_mbr_relations = range_query_incremental(rel_embeddings,er_mbr_min_coord,er_mbr_max_coord,inverted_coord_index_r_incr,sorted_coord_r_incr,min_allr_mbr_edge)
-            e_mbr_entities = range_query_naive(ent_embeddings,e_mbr_min_coord,e_mbr_max_coord)
-            er_mbr_entities = range_query_naive(ent_embeddings,er_mbr_min_coord,er_mbr_max_coord)
-            r_mbr_relations = range_query_naive(rel_embeddings,r_mbr_min_coord,r_mbr_max_coord)
-            er_mbr_relations = range_query_naive(rel_embeddings,er_mbr_min_coord,er_mbr_max_coord)
-            end = time.time()
+                start = time.time()
+                e_mbr_entities = range_query_naive(ent_embeddings,e_mbr_min_coord,e_mbr_max_coord)
+                er_mbr_entities = range_query_naive(ent_embeddings,er_mbr_min_coord,er_mbr_max_coord)
+                r_mbr_relations = range_query_naive(rel_embeddings,r_mbr_min_coord,r_mbr_max_coord)
+                er_mbr_relations = range_query_naive(rel_embeddings,er_mbr_min_coord,er_mbr_max_coord)
+                end = time.time()
 
-            e_mbr_diag = mbr_diagonal(e_mbr_min_coord,e_mbr_max_coord)
-            er_mbr_diag = mbr_diagonal(er_mbr_min_coord,er_mbr_max_coord)
-            r_mbr_diag = mbr_diagonal(r_mbr_min_coord,r_mbr_max_coord)
+                e_mbr_diag = mbr_diagonal(e_mbr_min_coord,e_mbr_max_coord)
+                er_mbr_diag = mbr_diagonal(er_mbr_min_coord,er_mbr_max_coord)
+                r_mbr_diag = mbr_diagonal(r_mbr_min_coord,r_mbr_max_coord)
 
-            output_stats = [len(entities),len(relations),len(e_mbr_entities),len(er_mbr_entities),len(r_mbr_relations),len(er_mbr_relations),e2e_avgdist,e2alle_avgdist,e2r_avgdist,e2allr_avgdist,r2r_avgdist,r2allr_avgdist,e_mbr_diag,alle_mbr_diag,er_mbr_diag,aller_mbr_diag,r_mbr_diag,allr_mbr_diag]
+                ref_er_mbr_diag = get_refermbr_diag(example,len(relations),entitypairs2allnonrulefacts,entity2id,ent_embeddings,rel_embeddings)
+                if ref_er_mbr_diag > 0.0:
+                    count_ref_er_mbr_nonnegativediag += 1
 
-            if rule == current_rule:
-                for i in range(0,len(output_stats)):
-                    rule_stats_sum[i] += output_stats[i]
-                    rule_stats_square_sum[i] += output_stats[i]*output_stats[i]
+                output_stats = [len(entities),len(relations),len(e_mbr_entities),len(er_mbr_entities),len(r_mbr_relations),len(er_mbr_relations),e2e_avgdist,e2alle_avgdist,e2r_avgdist,e2allr_avgdist,r2r_avgdist,r2allr_avgdist,e_mbr_diag,alle_mbr_diag,er_mbr_diag,ref_er_mbr_diag,aller_mbr_diag,r_mbr_diag,allr_mbr_diag]
 
-                for i in range(0,len(fo_moment_currente)):
-                    fo_moment_current_rule_e[i] += fo_moment_currente[i]*len(current_ent_embeddings)
-                for i in range(0,len(so_moment_currente)):
-                    so_moment_current_rule_e[i] += so_moment_currente[i]*len(current_ent_embeddings)
-                for i in range(0,len(fo_moment_currentr)):
-                    fo_moment_current_rule_r[i] += fo_moment_currentr[i]*len(current_rel_embeddings)
-                for i in range(0,len(so_moment_currentr)):
-                    so_moment_current_rule_r[i] += so_moment_currentr[i]*len(current_rel_embeddings)
+
+                if n_examples == 0:
+                    rule_stats_sum = [s for s in output_stats]
+                    rule_stats_square_sum = [s*s for s in output_stats]
+                    fo_moment_current_rule_e = [x*len(current_ent_embeddings) for x in fo_moment_currente]
+                    so_moment_current_rule_e = [x*len(current_ent_embeddings) for x in so_moment_currente]
+                    fo_moment_current_rule_r = [x*len(current_rel_embeddings) for x in fo_moment_currentr]
+                    so_moment_current_rule_r = [x*len(current_rel_embeddings) for x in so_moment_currentr]
+                else:
+                    for i in range(0,len(output_stats)):
+                        rule_stats_sum[i] += output_stats[i]
+                        rule_stats_square_sum[i] += output_stats[i]*output_stats[i]
+                    for i in range(0,len(fo_moment_currente)):
+                        fo_moment_current_rule_e[i] += fo_moment_currente[i]*len(current_ent_embeddings)
+                    for i in range(0,len(so_moment_currente)):
+                        so_moment_current_rule_e[i] += so_moment_currente[i]*len(current_ent_embeddings)
+                    for i in range(0,len(fo_moment_currentr)):
+                        fo_moment_current_rule_r[i] += fo_moment_currentr[i]*len(current_rel_embeddings)
+                    for i in range(0,len(so_moment_currentr)):
+                        so_moment_current_rule_r[i] += so_moment_currentr[i]*len(current_rel_embeddings)
 
                 n_rule_entities += len(current_ent_embeddings)
                 n_rule_relations += len(current_rel_embeddings)
                 n_examples += 1
-            else:
-                if current_rule != '':
-                    rule_stats_avg = [float(s)/n_examples for s in rule_stats_sum]
-                    rule_stats_stddev = [math.sqrt(max(0,float(rule_stats_square_sum[i])/n_examples - rule_stats_avg[i]*rule_stats_avg[i])) for i in range(0,len(rule_stats_square_sum))]
-                    #for i in range(0,len(rule_stats)):
-                    #    rule_stats[i] = float(rule_stats[i])/n_examples
-                    output_line_avg = current_rule + '\t' + 'RULE AVG STATS (over ' + str(n_examples) + ' examples)' + '\t' + '\t'.join([str(s) for s in rule_stats_avg])
-                    output_line_stddev = current_rule + '\t' + 'RULE STD-DEV STATS (over ' + str(n_examples) + ' examples)' + '\t' + '\t'.join([str(s) for s in rule_stats_stddev])
-                    output.write('\n' + output_line_avg)
-                    output.write('\n' + output_line_stddev)
 
-                    """
-                    for i in range(0,len(fo_moment_current_rule_e)):
-                        fo_moment_current_rule_e[i] = float(fo_moment_current_rule_e[i])/n_rule_entities
-                    for i in range(0,len(so_moment_current_rule_e)):
-                        so_moment_current_rule_e[i] = float(so_moment_current_rule_e[i])/n_rule_entities
-                    for i in range(0,len(fo_moment_current_rule_r)):
-                        fo_moment_current_rule_r[i] = float(fo_moment_current_rule_r[i])/n_rule_relations
-                    for i in range(0,len(so_moment_current_rule_r)):
-                        so_moment_current_rule_r[i] = float(so_moment_current_rule_r[i])/n_rule_relations
-                    avg_interexample_dist_e = fast_avg_euclidean_dist_momentsgiven(fo_moment_current_rule_e,fo_moment_current_rule_e,so_moment_current_rule_e,so_moment_current_rule_e)
-                    avg_interexample_dist_er = fast_avg_euclidean_dist_momentsgiven(fo_moment_current_rule_e,fo_moment_current_rule_r,so_moment_current_rule_e,so_moment_current_rule_r)
-                    avg_interexample_dist_r = fast_avg_euclidean_dist_momentsgiven(fo_moment_current_rule_r,fo_moment_current_rule_r,so_moment_current_rule_r,so_moment_current_rule_r)
-                    output.write('\n' + rule + '\t' + 'AVG INTER-EXAMPLE DISTANCE BETWEEN ENTITIES' + '\t' + str(avg_interexample_dist_e))
-                    output.write('\n' + rule + '\t' + 'AVG INTER-EXAMPLE DISTANCE BETWEEN ENTITIES AND RELATIONS' + '\t' + str(avg_interexample_dist_er))
-                    output.write('\n' + rule + '\t' + 'AVG INTER-EXAMPLE DISTANCE BETWEEN RELATIONS' + '\t' + str(avg_interexample_dist_r))
-                    output.write('\n')
-                    output.flush()
-                    """
+                output_line = rule + '\t' + exampletostring(example) + '\t' + '\t'.join([str(s) for s in output_stats])
+                output.write('\n' + output_line)
+                output.flush()
 
-                current_rule = rule
-                rule_stats_sum = [s for s in output_stats]
-                rule_stats_square_sum = [s*s for s in output_stats]
+                count += 1
+                #if ref_er_mbr_diag != -1:
+                    #print(output_line)
+                print('#processed examples: ' + str(count) + '---Range-query time: ' + str(int(round((end-start)*1000))) + 'ms')
 
-                fo_moment_current_rule_e = [x*len(current_ent_embeddings) for x in fo_moment_currente]
-                so_moment_current_rule_e = [x*len(current_ent_embeddings) for x in so_moment_currente]
-                fo_moment_current_rule_r = [x*len(current_rel_embeddings) for x in fo_moment_currentr]
-                so_moment_current_rule_r = [x*len(current_rel_embeddings) for x in so_moment_currentr]
-
-                n_rule_entities = len(current_ent_embeddings)
-                n_rule_relations = len(current_rel_embeddings)
-                n_examples = 1
-
-            output_line = rule + '\t' + example + '\t' + '\t'.join([str(s) for s in output_stats])
-            output.write('\n' + output_line)
+            rule_stats_avg = [float(s)/n_examples for s in rule_stats_sum]
+            rule_stats_stddev = [math.sqrt(max(0,float(rule_stats_square_sum[i])/n_examples - rule_stats_avg[i]*rule_stats_avg[i])) for i in range(0,len(rule_stats_square_sum))]
+            #for i in range(0,len(rule_stats)):
+            #    rule_stats[i] = float(rule_stats[i])/n_examples
+            output_line_avg = rule + '\t' + 'RULE AVG STATS (over ' + str(n_examples) + ' examples)' + '\t' + '\t'.join([str(s) for s in rule_stats_avg])
+            output_line_stddev = rule + '\t' + 'RULE STD-DEV STATS (over ' + str(n_examples) + ' examples)' + '\t' + '\t'.join([str(s) for s in rule_stats_stddev])
+            output.write('\n' + output_line_avg)
+            output.write('\n' + output_line_stddev)
             output.flush()
 
-            line = rules.readline()
-            count += 1
-            print('#processed lines: ' + str(count) + '---Range-query time: ' + str(int(round((end-start)*1000))) + 'ms')
-        rules.close()
+            """
+            for i in range(0,len(fo_moment_current_rule_e)):
+                fo_moment_current_rule_e[i] = float(fo_moment_current_rule_e[i])/n_rule_entities
+            for i in range(0,len(so_moment_current_rule_e)):
+                so_moment_current_rule_e[i] = float(so_moment_current_rule_e[i])/n_rule_entities
+            for i in range(0,len(fo_moment_current_rule_r)):
+                fo_moment_current_rule_r[i] = float(fo_moment_current_rule_r[i])/n_rule_relations
+            for i in range(0,len(so_moment_current_rule_r)):
+                so_moment_current_rule_r[i] = float(so_moment_current_rule_r[i])/n_rule_relations
+            avg_interexample_dist_e = fast_avg_euclidean_dist_momentsgiven(fo_moment_current_rule_e,fo_moment_current_rule_e,so_moment_current_rule_e,so_moment_current_rule_e)
+            avg_interexample_dist_er = fast_avg_euclidean_dist_momentsgiven(fo_moment_current_rule_e,fo_moment_current_rule_r,so_moment_current_rule_e,so_moment_current_rule_r)
+            avg_interexample_dist_r = fast_avg_euclidean_dist_momentsgiven(fo_moment_current_rule_r,fo_moment_current_rule_r,so_moment_current_rule_r,so_moment_current_rule_r)
+            output.write('\n' + rule + '\t' + 'AVG INTER-EXAMPLE DISTANCE BETWEEN ENTITIES' + '\t' + str(avg_interexample_dist_e))
+            output.write('\n' + rule + '\t' + 'AVG INTER-EXAMPLE DISTANCE BETWEEN ENTITIES AND RELATIONS' + '\t' + str(avg_interexample_dist_er))
+            output.write('\n' + rule + '\t' + 'AVG INTER-EXAMPLE DISTANCE BETWEEN RELATIONS' + '\t' + str(avg_interexample_dist_r))
+            output.write('\n')
+            output.flush()
+            """
         output.close()
+        print('count_ref_er_mbr_nonnegativediag: ' + str(count_ref_er_mbr_nonnegativediag))
     else:
         print("ERROR: rule-support file and/or output file not provided")
         sys.exit(2)

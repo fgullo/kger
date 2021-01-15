@@ -709,7 +709,7 @@ if __name__ == '__main__':
                 output.flush()
 
                 count += 1
-                #if ref_er_mbr_diag != -1:
+                #if ref_er_mbr_diag > 0.0:
                     #print(output_line)
                 print('#processed examples: ' + str(count) + '---Range-query time: ' + str(int(round((end-start)*1000))) + 'ms')
 

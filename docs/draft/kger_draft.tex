@@ -1,0 +1,73 @@
+\documentclass[a4paper,9pt]{article}
+
+\input{macros.tex}
+
+
+\begin{document}
+
+\title{Knowledge Graphs -- Embeddings \& Rules}
+%\subtitle{Research ideas}
+
+
+\author{\vspace{10mm}}
+
+\maketitle 
+
+
+
+\begin{algorithm}[h!]
+\caption{\textsc{EmbedRule-KG}}
+\label{alg:embedrulekg}
+\begin{algorithmic}[1]
+\small
+\REQUIRE $KB = \{(e_1,r, e_2)\}$, \ relation set $R$, \ length $k > 0$ of the body of a rule, \ support threshold $\eta \geq 0$
+\ENSURE Candidate rules $Q$
+\STATE $Q \gets \emptyset$
+\FOR{$h \in R$}
+	\STATE Select the set of start relations $S = \{s \in R \mid \mathcal{X}_s \cap \mathcal{X}_r \neq \emptyset\}$
+	\STATE Select the set of end relations $T = \{t \in R \mid \mathcal{Y}_t \cap \mathcal{Y}_r \neq \emptyset\}$
+	\STATE $SEQ_h \gets $ find all possible sequences of $k$ distinct relations other than $h$ and complying with $S$ and $T$ 
+	\vspace{1mm}
+	\\\COMMENT{\emph{Visit $KB$ to compute the support of a relation sequence in $SEQ_h$}}
+	\STATE $subjects(h) \gets \{e_1 | (e_1,h,e_2) \in KB\}$
+	\FOR{$(r_1, r_2, \ldots, r_k) \in SEQ_h$}
+		\STATE $paths \gets \{\langle e_1, 1 \rangle \mid \forall(e_1,r_1,e_2) \in KB \}$
+		%\STATE $p \gets |\{(e_1,r,e_2) \in KB \mid r = h\}|$
+		%\FOR{$(e_1,h,e_2) \in KB$}
+		%	\STATE ???
+		%\ENDFOR
+		\FOR{$i = 1, \ldots, k$}
+			\STATE $N_i \gets \{$all entities connected to an entity in $paths$ via relation $r_i\}$
+			\STATE $p(e) \gets 0$, \ $\forall e \in N_i$
+			\FOR{$\langle e, p\rangle \in paths$, \ all entities $e' \in N_i$ connected to $e$ via relation $r_i$}
+				\STATE $p(e') \gets p(e') + p$
+			\ENDFOR
+			\STATE $paths \gets \{\langle e, p(e) \rangle \mid \forall e \in N_i \}$
+		\ENDFOR
+		\STATE $pos \gets $ sum $p(e)$ for all $\langle e, p(e) \rangle \in paths$ s.t. $\exists e' \in subjects(h) : (e,h,e') \in KB$
+		\STATE $neg \gets $ sum $p(e)$ for all $\langle e, p(e) \rangle \in paths$ s.t. $\nexists e' \in subjects(h) : (e,h,e') \in KB$
+		\STATE $sup \gets pos/(pos+neg)$
+		\IF{$sup \geq \eta$}
+			\STATE $Q \gets Q \cup \{(r_1, \ldots, r_k, h)\}$
+		\ENDIF 
+	\ENDFOR
+\ENDFOR
+\end{algorithmic}
+\end{algorithm}
+
+
+\end{document}
+
+
+
+
+
+
+
+
+
+
+
+
+
+

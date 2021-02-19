@@ -20,7 +20,7 @@
 \label{alg:embedrulekg}
 \begin{algorithmic}[1]
 \small
-\REQUIRE $KB = \{(e_1,r, e_2)\}$, \ relation set $R$, \ length $k > 0$ of the body of a rule, \ support threshold $\eta \geq 0$
+\REQUIRE $KB = \{(e_1,r, e_2)\}$, \ relation set $R$, \ length $k > 0$ of rule's body, \ support threshold $\eta \geq 0$
 \ENSURE Candidate rules $Q$
 \STATE $Q \gets \emptyset$
 \FOR{$h \in R$}
@@ -36,19 +36,24 @@
 		%\FOR{$(e_1,h,e_2) \in KB$}
 		%	\STATE ???
 		%\ENDFOR
-		\FOR{$i = 1, \ldots, k$}
-			\STATE $N_i \gets \{$all entities connected to an entity in $paths$ via relation $r_i\}$
+		\FOR{$i = 1, \ldots, k$, \ until $|paths| > 0$}
+			\FOR{$\langle e, p\rangle \in paths$}
+				\STATE $N(e,r_i) \gets \{e' \mid (e,r_i,e') \in KB\}$\hfill\COMMENT{\emph{all entities connected to $e$ via $r_i$}}
+			\ENDFOR
+			\STATE $N_i \gets \bigcup_{\langle e, p\rangle \in paths} N(e,r_i) $
 			\STATE $p(e) \gets 0$, \ $\forall e \in N_i$
-			\FOR{$\langle e, p\rangle \in paths$, \ all entities $e' \in N_i$ connected to $e$ via relation $r_i$}
+			\FOR{$\langle e, p\rangle \in paths$, \ $e' \in N(e,r_i)$}
 				\STATE $p(e') \gets p(e') + p$
 			\ENDFOR
 			\STATE $paths \gets \{\langle e, p(e) \rangle \mid \forall e \in N_i \}$
 		\ENDFOR
 		\STATE $pos \gets $ sum $p(e)$ for all $\langle e, p(e) \rangle \in paths$ s.t. $\exists e' \in subjects(h) : (e,h,e') \in KB$
+		\\\hfill\COMMENT{\emph{$pos \gets 0$, if $|paths| = 0$}}
 		\STATE $neg \gets $ sum $p(e)$ for all $\langle e, p(e) \rangle \in paths$ s.t. $\nexists e' \in subjects(h) : (e,h,e') \in KB$
-		\STATE $sup \gets pos/(pos+neg)$
+		\\\hfill\COMMENT{\emph{$neg \gets 0$, if $|paths| = 0$}}
+		\STATE $sup \gets pos/(pos+neg)$, if $pos+neg>0$; \ \  $sup \gets 0$, otherwise
 		\IF{$sup \geq \eta$}
-			\STATE $Q \gets Q \cup \{(r_1, \ldots, r_k, h)\}$
+			\STATE $Q \gets Q \cup \{((r_1, \ldots, r_k) \Rightarrow h)\}$
 		\ENDIF 
 	\ENDFOR
 \ENDFOR

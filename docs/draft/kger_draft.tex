@@ -31,21 +31,22 @@
 	\\\COMMENT{\emph{Visit $KB$ to compute the support of a relation sequence in $SEQ_h$}}
 	\STATE $subjects(h) \gets \{e_1 | (e_1,h,e_2) \in KB\}$
 	\FOR{$(r_1, r_2, \ldots, r_k) \in SEQ_h$}
-		\STATE $paths \gets \{\langle e_1, 1 \rangle \mid \forall(e_1,r_1,e_2) \in KB \}$
+		\STATE $visited \gets \{e_1 \mid (e_1,r_1,e_2) \in KB \}$
+		\STATE $paths \gets \{\langle e_1, 1 \rangle \mid (e_1,r_1,e_2) \in KB \}$
 		%\STATE $p \gets |\{(e_1,r,e_2) \in KB \mid r = h\}|$
 		%\FOR{$(e_1,h,e_2) \in KB$}
 		%	\STATE ???
 		%\ENDFOR
 		\FOR{$i = 1, \ldots, k$, \ {\bf until} $|paths| > 0$}
 			\FOR{$\langle e, p\rangle \in paths$}
-				\STATE $N(e,r_i) \gets \{e' \mid (e,r_i,e') \in KB\}$\hfill\COMMENT{\emph{all entities connected to $e$ via $r_i$}}
+				\STATE $N(e,r_i) \gets \{e' \mid (e,r_i,e') \in KB, e' \notin visited\}$\\\hfill\COMMENT{\emph{all non-visited entities connected to $e$ via $r_i$}}
 			\ENDFOR
 			\STATE $N_i \gets \bigcup_{\langle e, p\rangle \in paths} N(e,r_i) $
 			\STATE $p(e) \gets 0$, \ $\forall e \in N_i$
 			\FOR{$\langle e, p\rangle \in paths$, \ $e' \in N(e,r_i)$}
 				\STATE $p(e') \gets p(e') + p$
 			\ENDFOR
-			\STATE $paths \gets \{\langle e, p(e) \rangle \mid \forall e \in N_i \}$
+			\STATE $paths \gets \{\langle e, p(e) \rangle \mid e \in N_i \}$; \ \ $visited \gets visited \cup N_i$
 		\ENDFOR
 		\IF{$|paths| > 0$}
 			\STATE $pos \gets $ sum $p(e)$ $\forall \langle e, p(e) \rangle \in paths$ s.t. $\exists e' \in subjects(h) : (e,h,e') \in KB$
@@ -63,6 +64,7 @@
 \end{algorithmic}
 \end{algorithm}
 
+\note{Optimization: while processing a relation sequence $(r_1, r_2, \ldots, r_k) \in SEQ_h$, one can cache $paths$ computed for all prefixes $\{(r_1, \ldots, r_i)\}_{i=1}^{k-1}$, and, then, for a next sequence $(r'_1, r'_2, \ldots, r'_k) \in SEQ_h$, the process can start from the longest prefix of $(r'_1, r'_2, \ldots, r'_k)$ that is stored in cache, and not from scratch.} 
 
 \end{document}
 

@@ -16,6 +16,8 @@ Playing with embedding and rule mining in knowledge graphs
 * KG-Completion Re-evaluation [[paper](https://arxiv.org/abs/2003.08001)] [[github](https://github.com/idirlab/kgcompletion)] [[web](https://medium.com/@fakrami/re-evaluation-of-knowledge-graph-completion-methods-7dfe2e981a77)]
 * OpenKE [[paper](https://www.aclweb.org/anthology/D18-2024/)] [[github](https://github.com/thunlp/OpenKE)] [[web](http://openke.thunlp.org/)]
 * LibKGE [[paper](https://www.aclweb.org/anthology/2020.emnlp-demos.22/)] [[github](https://github.com/uma-pi1/kge)]
+* DGL-KE [[paper](https://arxiv.org/abs/2004.08532)] [[github](https://github.com/awslabs/dgl-ke)]
+
 ### Training embeddings
 * Done with [OpenKE](http://openke.thunlp.org)
 * Install OpenKE by following its [installation guide](https://github.com/thunlp/OpenKE) (it requires [PyTorch](https://pytorch.org/), among others)

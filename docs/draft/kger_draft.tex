@@ -5,7 +5,8 @@
 
 \begin{document}
 
-\title{Knowledge Graphs -- Embeddings \& Rules}
+%\title{Knowledge Graphs -- Embeddings \& Rules}
+\title{Knowledge Graph Reliability}
 %\subtitle{Research ideas}
 
 
@@ -65,6 +66,58 @@
 \end{algorithm}
 
 \note{Optimization: while processing a relation sequence $(r_1, r_2, \ldots, r_k) \in SEQ_h$, one can cache $paths$ computed for all prefixes $\{(r_1, \ldots, r_i)\}_{i=1}^{k-1}$, and, then, for a next sequence $(r'_1, r'_2, \ldots, r'_k) \in SEQ_h$, the process can start from the longest prefix of $(r'_1, r'_2, \ldots, r'_k)$ that is stored in cache, and not from scratch.} 
+
+\section{Reliability}
+
+Let as assume to build a complete, weighted, entity-relation-entity graph, containing all possible relations and with arc weights equivalent to the scoring function of a considered embedding model $f_r(h,t)$.
+
+We define \textbf{reliability} $R(\mathcal{K})$ as follows: 
+$$R(\mathcal{K}) = \sum_{(h,r,t) \in \mathcal{K}} (1 - f_r(h,t)) +  \sum_{(h,r,t) \not \in \mathcal{K}} f_r(h,t) $$
+
+Where $\mathcal{K}$ is a knowledge graph (provided as a set of triplets). 
+
+In this experiment, we are going to use a link-prediction strategy to \emph{compare} the \textbf{reliability} of a subgraph with the \textbf{accuracy} of a classifier on the subgraph triplets. 
+
+The pseudo-code of the algorithm that you should implement is reported below. 
+
+\begin{itemize}
+
+\item Pick integers
+\begin{itemize}
+\item $k$: subgraph size
+\item $h$: number of subgraphs to be sampled
+\end{itemize}
+
+\item Split the input $KG$ into $TRAIN_E$ (triplets to be used for training the embeddings) and $LP^+ = KG \setminus TRAIN_E$ (positive examples for the link-prediction classifier)
+
+\item Define train set and test set for the ultimate link-prediction task
+\begin{itemize}
+\item Define $LP^-$ by sampling $|LP^+|$ non-existing triplets from $KG$ (in some way; check the literature)
+\item Split $LP^+$ into $TRAIN_{LP^+}$ and $TEST_{LP^+}$
+\item Split $LP^-$ into $TRAIN_{LP^-}$ and $TEST_{LP^-}$
+\item $TRAIN_{LP} = TRAIN_{LP^+} \cup TRAIN_{LP^-}$
+\item $TEST_{LP} = TEST_{LP^+} \cup TEST_{LP^-}$
+\end{itemize}
+
+\item Train embeddings on $TRAIN_E$
+
+\item Train a classifier for link prediction on $TRAIN_{LP}$ (with embeddings used as feature vectors, e.g., letting the feature vector of triple $t$ correspond to the concatenation of the embeddings of $t$'s subject, $t$'s predicate, and $t$'s object)
+
+\item Test the link-prediction classifier. In particular:
+\begin{itemize}
+\item Sample $h$ subgraphs $\{S_1, \ldots, S_h\}$ of size (\#nodes) $k$ from $KG$
+\item For every subgraph $S_i$, $i=1, \ldots, h$:
+\begin{itemize}
+\item Compute accuracy $ACC_i$ of the link-prediction classifier on $TEST_{LP} \cap S_i$
+\item Compute the reliability score $REL_i$ of subgraph $S_i$
+\item Show correlation among the set $\{ACC_i\}{i=1}^h$ of accuracy scores and the set $\{REL_i\}{i=1}^h$ of reliability scores
+\item Ideally, such a correlation should show \emph{high accuracy} $\Leftrightarrow$ \emph{high reliability}
+\end{itemize}
+\end{itemize}
+
+\end{itemize}
+
+
 
 \end{document}
 
